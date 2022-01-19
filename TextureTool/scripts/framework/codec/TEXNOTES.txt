@@ -1,0 +1,96 @@
+texture notes as of 11/18/21
+derived from development process of "trexture" [planned title] , a texture viewer/editor tool
+incomplete discoveries/research/notes are not included for sake of having less confusion
+
+texture header :
+ref from decomp repo :
+typedef struct Texture
+			{
+				u8 width;
+				u8 height;
+				u8 format;
+				u8 unk_0x3;
+				u16 unk_0x4;
+				s16 flags;
+				Gfx *gdl;
+				u16 levels;
+				u16 unk_0xe;
+				u16 unk_0x10;
+				s16 gdlIdx;
+				struct Texture *next;
+				s16 unk_0x18;
+				u8 unk_0x1a;
+				u8 unk_0x1b;
+				u8 cms;
+				u8 masks;
+				u8 cmt;
+				u8 maskt;
+			} Texture; // Size: 0x20, followed by texture data
+
+observations :
+	format byte seems to be {U4 unk_0x2_11110000, U4 format}
+		descrepencies discovered with TEX0, also seem related to the oversized textures
+	still some screwy things happening with the dimensions
+		major descrepencies discovered with TEX0, textures exceeding the provided dimensions have been discovered
+		[max size of width or height is 255 given the use of bytes to encode them]
+		
+		warlock's developer, hugo peters suggests hard-coding a check for these specific criteria as this is a unique situsation with this format
+			more research needed for why this happens... if not impacting the game in any signficiant format, texture mods should maybe 'correct' these!
+			
+bin/tab pair archives :
+
+	tab : 
+		offset table into bin
+		one BIG-ENDIAN 32 bit integer per entry
+			first byte is actually a sub-item count, seems to be exclusively used in "array textures"
+		the EOF entry seems to always be 0xFFFFFFFF
+		accessing an item from the bins is done by reading the corresponding entry from the tab and subtracting that from the next entry in the tab to get the size of the resource
+
+	bin :
+		format has one minor variation if there's multiple items at a given index
+		single items :
+			LITTLE-ENDIAN 32-bit integer decompressed size
+			BYTE = 9
+			byte-array of compressedsize contains deflate-compressed data
+		
+		multiple items :
+			array of {I32 offset,I32 decompressed size} with length of count + 1
+				offset is relative to the offset in the bin where the item is located
+				as with tabs, the offset of the current item is subtracted from the next one to get the length
+				the inclusion of decompressed size seems redundant and unecesarry, but maybe the game engine actually uses it? [texture viewer ignores it]
+			remaining data is the individual items, each is the same format as a single item
+
+texture formats & IDs * :
+	once DP/[DKR?]/rare[?] specifics are dealt with, the textures are just standard N64 texture formats with no significant changes
+	https://n64squid.com/homebrew/n64-sdk/textures/image-formats/
+
+	RGBA32 : 0
+	RGBA16 : 1 
+	"Packed" IA8 : 2 (IA8 variant where 4 bits I, whole byte is A, probabaly needs to decode to IA16 on hw)
+	"Packed" IA4 : 3 (IA4 variant where 3 bits I, whole nibble is A, probabaly needs to decode to IA8 on hw)
+		all documentation i could personally find does not document these as being official, but i could be mistaken
+		the texture64 tool also does not support them, leading to pixels just looking ...wrong
+		therefore, i believe this is something clever rare, or at least, gamedevs discovered, versus being implemented by the hardware
+		i named them "packed" because it's like packing the next size up into the encoded one's space
+	IA16   : 4
+	IA8    : 5 
+	IA4    : 6						
+	CI4    : 7
+	
+	* some textures in TEX0 appear to be using different format IDs, or i'm missing something here...
+	
+row-swizzling :
+
+	all formats* :
+	assumed to be an an asset protection measure, the odd rows of each row are swizzled along 32-bit boundaries
+	basically, on every odd row, the sequential pairs of 32-bit ints are swappped with each other
+		so, {I32 bitsrc1,I32 bitsrc2} is read as {I32 bitsrc2,I32 bitsrc1}
+		
+		* RGBA32 does it a bit differently
+		
+		** again, in TEX0, some textures are NOT row-swizzled
+		
+	RGBA32 : 
+		most likely because RGBA32 textures are, well, 32 bits per pixel, groups of 64 bits are swapped with eachother
+			so, {bitsrc32A{I32 bitsrc1,I32 bitsrc2} bitsrc32B{I32 bitsrc1,I32 bitsrc2}}
+			is read as {bitsrc32B{I32 bitsrc2,I32 bitsrc1} bitsrc32A{I32 bitsrc2,I32 bitsrc1}}
