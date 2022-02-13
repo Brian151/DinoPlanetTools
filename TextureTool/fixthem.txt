@@ -1,0 +1,24 @@
+TEX0 : the broken ones : 
+
+687 - I8 - 320 x 192 - no swizzle - splash screen
+707 - RGBA16 - 640 x 480 - disable alpha - general scales / save select BG
+708 - RGBA16 - 640 x 480 - disable alpha - paper texture / ???
+709 - RGBA16 - 640 x 480 - disable alpha - sabre art / options BG
+710 - RGBA16 - 640 x 480 - disable alpha - controller art / view layout BG
+713 - RGBA32 - 320 x 64- N64 LOGO
+714 - RGBA32 - 320 x 64 - N64 LOGO SHADOW/GLOW
+729 - RGBA32 - 308 x 128 - save card/slot[?]
+// todo : what were the heights, again?
+762 - RGBA32 - 96 - no swizzle - book page[?]
+763 - RGBA32 - 112 - no swizzle - end of paper scroll
+764 - RGBA32 - 68 - no swizzle - "continue"
+765 - RGBA32 - 68 - no swizzle - "continue"
+766 - RGBA32 - 40 - no swizzle - "save"
+767 - RGBA32 - 40 - no swizzle - "save"
+768 - RGBA32 - 40 - no swizzle - "quit"
+769 - RGBA32 - 40 - no swizzle - "quit"
+770 - RGBA32 - 28 - no swizzle - "yes"
+771 - RGBA32 - 28 - no swizzle - "yes"
+772 - RGBA32 - 28 - no swizzle - "no"
+773 - RGBA32 - 28 - no swizzle - "no"
+774 - RGBA32 - 96 - no swizzle - "do you want to save before quitting?"
