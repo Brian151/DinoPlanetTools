@@ -2,6 +2,7 @@ package framework.codec;
 import imayaZlib.RawInflate;
 import js.Error;
 import js.html.ArrayBuffer;
+import js.html.Uint16Array;
 import js.html.Uint8Array;
 
 typedef TDinoPlanetTextureHeader = {
@@ -80,13 +81,7 @@ class Texture
 	public static function encodeTexture() : Uint8Array {
 		// TODO
 		throw new Error("not implemented");
-		return {
-			format : -1,
-			width : 0,
-			height : 0,
-			pixels : new Uint8Array(0),
-			palette : new Uint8Array(0)
-		}
+		return new Uint8Array(0);
 	}
 	
 	// debug funcs:
@@ -118,7 +113,7 @@ class Texture
 	}
 	
 	static function readTextureHeader(src:DataStream) : TDinoPlanetTextureHeader {
-		return {
+		return var out:TDinoPlanetTextureHeader = {
 			width : src.readUint8(),
 			height : src.readUint8(),
 			format : src.readUint8(), 
@@ -190,14 +185,42 @@ class Texture
 	}
 	
 	// tbh, probably should be a util func
-	// need an RGB16 > RGBA32 function
+	// need an RGBA32 > RGBA16 function
 	// but then, what to re-name this?
 	// return type debatable
-	static function RGBA16() : Array<Int> {} 
+	static function RGBA16(c:Int) : Array<Int> {
+		var r:Int = c & 0x0f800; // 11111 00000 00000 0
+		var g:Int = c & 0x07c0; //  00000 11111 00000 0
+		var b:Int = c & 0x03e; //   00000 00000 11111 0
+		var a:Int = c & 0x01; //    00000 00000 00000 1
+		r >>= 8; // >> 11 (align) - 3
+		g >>= 3; // >> 6 (align) - 3
+		b <<= 2; // >> 1 (align) - 3 , but blue is only 1 bit off from being aligned, so we shift left
+		var out:Int = new Array();
+		out.push(r);
+		out.push(g);
+		out.push(b);
+		out.push(a * 255);
+		return out;
+	}
 	
 	// currently using a U8 Array as return, should i abstract a palette type?
-	// need writePalette
-	static function readPalette() {}
+	static function readPalette(src:DataStream,numColors:Int) : Uint8Array {
+		var pal16:Uint16Array = src.readUint16Array(numColors);
+		var palette = new Uint8Array(numColors * 4);
+		for (i in 0...numColors) {
+			var c:Array<Int> = RGBA16(pal16[i]);
+			var base:Int = i * 4;
+			palette[base + 0] = c[0];
+			palette[base + 1] = c[1];
+			palette[base + 2] = c[2];
+			palette[base + 3] = c[3];
+		}
+		return palette;
+	}
+	
+	// TODO
+	static function writePalette(){}
 	
 	// all need equivalent write functions
 	// 'packed' versions might be
@@ -221,24 +244,468 @@ class Texture
 	// need a Bool:noSwizzle argument to override the swizzling
 	// given the current implementation, get/setBits() might also need to do this
 	
-	static function readTextureIA4P() : TDinoPlanetTexture {}
+	static function readTextureIA4P(src:DataStream,header:TDinoPlanetTextureHeader) : TDinoPlanetTexture {
+		// should i just add the header to the texture type? it might be something
+		// that needs to be processed outside of the codec
+		var width : Int = header.width;
+		var height : Int = header.height;
+		var format : Int = header.format;
+		var imageSize : Int = width * height;
+		// we're outputting RGBA32 for now
+		// maybe we shouldn't be doing that?
+		// essentilly just creating an ImageData by another name
+		// and the editor needs to account for format-specific limitations
+		var pixels : Uint8Array = new Uint8Array(imageSize * 4);
+		src.position = 0x20;
+		var bitsLeft : Int = 64;
+		var currentRow : Int = 0;
+		var bitSrc : Array<Int> = getBits(src, row);
+		// in hindsight, why in the HELL am i doing it like this?!
+		var bits1 : Int = bitSrc[0];
+		var bits2 : Int = bitSrc[1];
+		for (i in 0...imageSize) {
+			if (i > 0 && (i % width) == 0) {
+				currentRow++;
+			}
+			if (bitsLeft <= 0) {
+				bitSrc : = getBits(src, row);
+				// in hindsight, why in the HELL am i doing it like this?!
+				bits1 = bitSrc[0];
+				bits2 = bitSrc[1];
+				bitsLeft = 64;
+			}
+			var pix : Int = 0;
+			var r : Int = 0;
+			var g : Int = 0;
+			var b : Int = 0;
+			var a : Int = 0;
+			// U64 in JS not exactly supported
+			if (bitsLeft <= 32) {
+				pix = (bits2 & 0xe0000000) >>> 28;
+				a = (bits2 & 0xf0000000) >>> 28;
+				bits2 <<= 4;
+				pix >>>= 1;
+				r = CLUT4BIT[p * 2];
+				g = CLUT4BIT[p * 2];
+				b = CLUT4BIT[p * 2];
+				bitsleft -= 4;
+			} else {
+				pix = (bits1 & 0xe0000000) >>> 28;
+				a = (bits1 & 0xf0000000) >>> 28;
+				bits1 <<= 4;
+				pix >>>= 1;
+				r = CLUT4BIT[p * 2];
+				g = CLUT4BIT[p * 2];
+				b = CLUT4BIT[p * 2];
+				bitsleft -= 4;
+			}
+			var base : Int = i * 4;
+			pixels[base + 0] = r;
+			pixels[base + 1] = g;
+			pixels[base + 2] = b;
+			pixels[base + 3] = CLUT4BIT[a];
+		}
+		return {
+			format : format,
+			palette : new Uint8Array(4),
+			width : width,
+			height : height,
+			pixels : pixels
+		}
+	}
 	
-	static function readTextureIA16() : TDinoPlanetTexture {}
+	// TODO : original untyped JS code needs re-written where appropriate
+	static function readTextureIA16(src:DataStream,header:TDinoPlanetTextureHeader) : TDinoPlanetTexture {
+		var width = header.width;
+			var height = header.height;
+			var format = header.format;
+			var imagesize = width * height;
+			var pixels = new Uint8Array(imagesize * 4);
+			srcBytes.position = 0x20;
+			var bitsleft = 64;
+			var currentRow = 0;
+			var bitsrc = getbits(srcBytes,height,currentRow);
+			var bits1 = bitsrc[0];
+			var bits2 = bitsrc[1];
+			for (var j=0; j < imagesize; j++) {
+				if (j > 0 && !(j % width)) {
+					currentRow++;
+				}
+				if (bitsleft <= 0) {
+					var bitsrc = getbits(srcBytes,currentRow);
+					var bits1 = bitsrc[0];
+					var bits2 = bitsrc[1];
+					bitsleft = 64;
+					// console.log(bits1,bits2);
+				}
+				var p = 0;
+				var a = 0;
+				if (bitsleft <= 32) {
+					// JS deals exclusively in int64s... >.>
+					p = (bits2 & 0xff000000) >>> 24; 
+					a = (bits2 & 0x00ff0000) >>> 16; 
+					bits2 <<= 16;
+					//console.log(p);
+					bitsleft -= 16;
+				} else {
+					p = (bits1 & 0xff000000) >>> 24;
+					a = (bits1 & 0x00ff0000) >>> 16;
+					bits1 <<= 16;
+					//console.log(p);
+					bitsleft -= 16;
+				}
+				var base = j * 4;
+				pixels[base + 0] = p;
+				pixels[base + 1] = p;
+				pixels[base + 2] = p;
+				pixels[base + 3] = a;
+			}
+			return {
+				format : format,
+				palette : new Uint8Array(4),
+				width : width,
+				height : height,
+				pixels : pixels
+			}
+	}
 	
-	static function readTextureIA8() : TDinoPlanetTexture {}
+	static function readTextureIA8(src:DataStream,header:TDinoPlanetTextureHeader) : TDinoPlanetTexture {
+		var width = header.width;
+			var height = header.height;
+			var format = header.format;
+			var imagesize = width * height;
+			var pixels = new Uint8Array(imagesize * 4);
+			srcBytes.position = 0x20;
+			var bitsleft = 64;
+			var currentRow = 0;
+			var bitsrc = getbits(srcBytes,height,currentRow);
+			var bits1 = bitsrc[0];
+			var bits2 = bitsrc[1];
+			for (var j=0; j < imagesize; j++) {
+				if (j > 0 && !(j % width)) {
+					currentRow++;
+				}
+				if (bitsleft <= 0) {
+					var bitsrc = getbits(srcBytes,currentRow);
+					var bits1 = bitsrc[0];
+					var bits2 = bitsrc[1];
+					bitsleft = 64;
+					// console.log(bits1,bits2);
+				}
+				var p = 0;
+				var r = 0;
+				var g = 0;
+				var b = 0;
+				var a = 0;
+				if (bitsleft <= 32) {
+					// JS deals exclusively in int64s... >.>
+					p = (bits2 & 0xf0000000) >>> 28; 
+					a = (bits2 & 0xff000000) >>> 24; 
+					bits2 <<= 8;
+					//console.log(p);
+					r = CLUT4BIT[p];
+					g = CLUT4BIT[p];
+					b = CLUT4BIT[p];
+					bitsleft -= 8;
+				} else {
+					p = (bits1 & 0xf0000000) >>> 28;
+					a = (bits1 & 0xff000000) >>> 24;
+					bits1 <<= 8;
+					//console.log(p);
+					r = CLUT4BIT[p];
+					g = CLUT4BIT[p];
+					b = CLUT4BIT[p];
+					bitsleft -= 8;
+				}
+				var base = j * 4;
+				pixels[base + 0] = r;
+				pixels[base + 1] = g;
+				pixels[base + 2] = b;
+				pixels[base + 3] = a;
+			}
+			return {
+				format : format,
+				palette : new Uint8Array(4),
+				width : width,
+				height : height,
+				pixels : pixels
+			}
+	}
 	
-	static function readTextureIA4() : TDinoPlanetTexture {}
+	static function readTextureIA4(src:DataStream,header:TDinoPlanetTextureHeader) : TDinoPlanetTexture {
+		var width = header.width;
+			var height = header.height;
+			var format = header.format;
+			var imagesize = width * height;
+			var pixels = new Uint8Array(imagesize * 4);
+			srcBytes.position = 0x20;
+			var bitsleft = 64;
+			var currentRow = 0;
+			var bitsrc = getbits(srcBytes,height,currentRow);
+			var bits1 = bitsrc[0];
+			var bits2 = bitsrc[1];
+			for (var j=0; j < imagesize; j++) {
+				if (j > 0 && !(j % width)) {
+					currentRow++;
+				}
+				if (bitsleft <= 0) {
+					var bitsrc = getbits(srcBytes,currentRow);
+					var bits1 = bitsrc[0];
+					var bits2 = bitsrc[1];
+					bitsleft = 64;
+					// console.log(bits1,bits2);
+				}
+				var p = 0;
+				var r = 0;
+				var g = 0;
+				var b = 0;
+				var a = 0;
+				if (bitsleft <= 32) {
+					// JS deals exclusively in int64s... >.>
+					p = (bits2 & 0xf0000000) >>> 28; 
+					a = p & 0b0001;
+					p >>>= 1;
+					bits2 <<= 4;
+					//console.log(p);
+					r = CLUT4BIT[p * 2];
+					g = CLUT4BIT[p * 2];
+					b = CLUT4BIT[p * 2];
+					bitsleft -= 4;
+				} else {
+					p = (bits1 & 0xf0000000) >>> 28;
+					a = p & 0b0001;
+					p >>>= 1;
+					bits1 <<= 4;
+					//console.log(p);
+					r = CLUT4BIT[p * 2];
+					g = CLUT4BIT[p * 2];
+					b = CLUT4BIT[p * 2];
+					bitsleft -= 4;
+				}
+				var base = j * 4;
+				pixels[base + 0] = r;
+				pixels[base + 1] = g;
+				pixels[base + 2] = b;
+				pixels[base + 3] = a * 255;
+			}
+			return {
+				format : format,
+				palette : new Uint8Array(4),
+				width : width,
+				height : height,
+				pixels : pixels
+			}
+	}
 	
-	static function readTextureIA8T() : TDinoPlanetTexture {}
+	static function readTextureIA8T(src:DataStream,header:TDinoPlanetTextureHeader) : TDinoPlanetTexture {
+		var width = header.width;
+			var height = header.height;
+			var format = header.format;
+			var imagesize = width * height;
+			var pixels = new Uint8Array(imagesize * 4);
+			srcBytes.position = 0x20;
+			var bitsleft = 64;
+			var currentRow = 0;
+			var bitsrc = getbits(srcBytes,height,currentRow);
+			var bits1 = bitsrc[0];
+			var bits2 = bitsrc[1];
+			for (var j=0; j < imagesize; j++) {
+				if (j > 0 && !(j % width)) {
+					currentRow++;
+				}
+				if (bitsleft <= 0) {
+					var bitsrc = getbits(srcBytes,currentRow);
+					var bits1 = bitsrc[0];
+					var bits2 = bitsrc[1];
+					bitsleft = 64;
+					// console.log(bits1,bits2);
+				}
+				var p = 0;
+				var r = 0;
+				var g = 0;
+				var b = 0;
+				var a = 0;
+				if (bitsleft <= 32) {
+					// JS deals exclusively in int64s... >.>
+					p = (bits2 & 0xf0000000) >>> 28; 
+					a = (bits2 & 0x0f000000) >>> 24; 
+					bits2 <<= 8;
+					//console.log(p);
+					r = CLUT4BIT[p];
+					g = CLUT4BIT[p];
+					b = CLUT4BIT[p];
+					bitsleft -= 8;
+				} else {
+					p = (bits1 & 0xf0000000) >>> 28;
+					a = (bits1 & 0x0f000000) >>> 24;
+					bits1 <<= 8;
+					//console.log(p);
+					r = CLUT4BIT[p];
+					g = CLUT4BIT[p];
+					b = CLUT4BIT[p];
+					bitsleft -= 8;
+				}
+				var base = j * 4;
+				pixels[base + 0] = r;
+				pixels[base + 1] = g;
+				pixels[base + 2] = b;
+				pixels[base + 3] = CLUT4BIT[a];
+			}
+			return {
+				format : format,
+				palette : new Uint8Array(4),
+				width : width,
+				height : height,
+				pixels : pixels
+			}
+	}
 	
-	static function readTextureRGBA32() : TDinoPlanetTexture {}
+	static function readTextureRGBA32(src:DataStream,header:TDinoPlanetTextureHeader) : TDinoPlanetTexture {
+		var width = header.width;
+			var height = header.height;
+			var format = header.format;
+			var imagesize = width * height;
+			var pixels = new Uint8Array(imagesize * 4);
+			srcBytes.position = 0x20;
+			var bitsleft = 128;
+			var currentRow = 0;
+			var bitsrc = getbits32(srcBytes,height,currentRow);
+			for (var j=0; j < imagesize; j++) {
+				if (j > 0 && !(j % width)) {
+					currentRow++;
+				}
+				if (bitsleft <= 0) {
+					bitsrc = getbits32(srcBytes,currentRow);
+					bitsleft = 128;
+				}
+				var p = 0;
+				var r = 0;
+				var g = 0;
+				var b = 0;
+				var a = 0;
+				if (bitsleft >= 32) {
+					// JS deals exclusively in int64s... >.>
+					p = bitsrc.shift();
+					r = (p & 0xff000000) >>> 24;
+					g = (p & 0x00ff0000) >>> 16;
+					b = (p & 0x0000ff00) >>> 8;
+					a = p & 0x000000ff;
+					bitsleft -= 32;
+				}
+				var base = j * 4;
+				pixels[base + 0] = r;
+				pixels[base + 1] = g;
+				pixels[base + 2] = b;
+				pixels[base + 3] = a;
+			}
+			return {
+				format : format,
+				palette : new Uint8Array(4),
+				width : width,
+				height : height,
+				pixels : pixels
+			}
+	}
 	
-	static function readTextureRGBA16() : TDinoPlanetTexture {}
+	static function readTextureRGBA16(src:DataStream,header:TDinoPlanetTextureHeader) : TDinoPlanetTexture {
+		var width = header.width;
+			var height = header.height;
+			var format = header.format;
+			var imagesize = width * height;
+			var pixels = new Uint8Array(imagesize * 4);
+			srcBytes.position = 0x20;
+			var bitsleft = 64;
+			var currentRow = 0;
+			var bitsrc = getbits(srcBytes,height,currentRow);
+			var bits1 = bitsrc[0];
+			var bits2 = bitsrc[1];
+			for (var j=0; j < imagesize; j++) {
+				if (j > 0 && !(j % width)) {
+					currentRow++;
+				}
+				if (bitsleft <= 0) {
+					var bitsrc = getbits(srcBytes,currentRow);
+					var bits1 = bitsrc[0];
+					var bits2 = bitsrc[1];
+					bitsleft = 64;
+					// console.log(bits1,bits2);
+				}
+				var p = 0;
+				if (bitsleft <= 32) {
+					// JS deals exclusively in int64s... >.>
+					p = (bits2 & 0xffff0000) >>> 16;
+					bits2 <<= 16;
+					bitsleft -= 16;
+				} else {
+					p = (bits1 & 0xffff0000) >>> 16;
+					bits1 <<= 16;
+					bitsleft -= 16;
+				}
+				var base = j * 4;
+				var c = RGBA16(p);
+				//console.log(c);
+				pixels[base + 0] = c[0];
+				pixels[base + 1] = c[1];
+				pixels[base + 2] = c[2];
+				pixels[base + 3] = c[3];
+			}
+			return {
+				format : format,
+				palette : new Uint8Array(4),
+				width : width,
+				height : height,
+				pixels : pixels
+			}
+	}
 	
-	static function readTextureCI4() : TDinoPlanetTexture {}
+	static function readTextureCI4(src:DataStream,header:TDinoPlanetTextureHeader) : TDinoPlanetTexture {
+		var width = header.width;
+			var height = header.height;
+			var format = header.format;
+			var imagesize = width * height;
+			var pixels = new Uint8Array(imagesize);
+			srcBytes.position = 0x20;
+			var bitsleft = 64;
+			var currentRow = 0;
+			var bitsrc = getbits(srcBytes,height,currentRow);
+			var bits1 = bitsrc[0];
+			var bits2 = bitsrc[1];
+			for (var j=0; j < imagesize; j++) {
+				if (j > 0 && !(j % width)) {
+					currentRow++;
+				}
+				if (bitsleft <= 0) {
+					var bitsrc = getbits(srcBytes,currentRow);
+					var bits1 = bitsrc[0];
+					var bits2 = bitsrc[1];
+					bitsleft = 64;
+					// console.log(bits1,bits2);
+				}
+				var p = 0;
+				if (bitsleft <= 32) {
+					// JS deals exclusively in int64s... >.>
+					p = (bits2 & 0xf0000000) >>> 28;
+					bits2 <<= 4;
+					bitsleft -= 4;
+				} else {
+					p = (bits1 & 0xf0000000) >>> 28;
+					bits1 <<= 4;
+					bitsleft -= 4;
+				}
+				pixels[j] = p;
+			}
+			var palette = readPalette(srcBytes,16);
+			return {
+				format : format,
+				palette : palette,
+				width : width,
+				height : height,
+				pixels : pixels
+			}
+	}
 	
 	// these should probably not be handled by the [en/de]coder at all
-	function drawTexture(){}
-	function drawPalette(){}
+	//function drawTexture(){}
+	//function drawPalette(){}
 
 }
