@@ -2,7 +2,7 @@ package;
 //import js.Promise;
 import js.html.ArrayBuffer;
 import js.html.Blob;
-import js.html.Uint8Array;
+import js.html.UInt8Array;
 
 
 typedef JsZipAsyncSettings = {
@@ -19,8 +19,8 @@ extern class JSZip
 
 	
 #if (haxe_ver >= 4)
-	public function test<T:String & ArrayBuffer & Uint8Array & Blob>(name:String,data:T)
+	public function test<T:String & ArrayBuffer & UInt8Array & Blob>(name:String,data:T) : JSZip;
 #else
-	public function file<T:(String , ArrayBuffer, Uint8Array, Blob)>(name:String,data:T) : JSZip;
+	public function file<T:(String , ArrayBuffer, UInt8Array, Blob)>(name:String,data:T) : JSZip;
 #end
 }

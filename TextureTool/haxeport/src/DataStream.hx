@@ -1,11 +1,11 @@
 package;
-import js.html.ArrayBuffer;
-import js.html.Uint32Array;
-import js.html.Uint16Array;
-import js.html.Uint8Array;
-import js.html.Int32Array;
-import js.html.Int16Array;
-import js.html.Int8Array;
+import js.lib.ArrayBuffer;
+import js.lib.Uint32Array;
+import js.lib.Uint16Array;
+import js.lib.Uint8Array;
+import js.lib.Int32Array;
+import js.lib.Int16Array;
+import js.lib.Int8Array;
 
 
 extern class DataStream 
@@ -32,5 +32,6 @@ extern class DataStream
 	public function readInt16Array(length:Int,?endian:Bool) : Int16Array;
 	public function readInt8Array(length:Int,?endian:Bool) : Int8Array;
 	
+	public function writeUint8Array(arr:Uint8Array) : Void;
 	
 }

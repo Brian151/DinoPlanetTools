@@ -1,10 +1,10 @@
 package imayaZlib;
-import haxe.io.UInt8Array;
+import js.lib.Uint8Array;
 
 @:native("Zlib.RawDeflate") extern class RawDeflate 
 {
 
-	public function new(src:UInt8Array);
-	public function compress():UInt8Array;
+	public function new(src:Uint8Array);
+	public function compress():Uint8Array;
 	
 }
