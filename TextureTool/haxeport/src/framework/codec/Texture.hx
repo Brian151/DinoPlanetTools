@@ -48,7 +48,6 @@ typedef TTextureFormatOverride = {
 class Texture
 {
 	// TODO:
-	// fix compiler errors!!!
 	// overrides [hopefully temp!]
 	// re-factor decoders
 	// re-implement debug funcs???
@@ -78,29 +77,45 @@ class Texture
 	// some textures in TEX0 don't decode properly on their own
 	// temp[?] solution will be an override settings object
 	// that will be stored in the manifest entries
-	public static function decodeTexture(src:DataStream,sizeComp:Int/*,?hack:TTextureFormatOverride*/) : TDinoPlanetTexture {
+	public static function decodeTexture(src:DataStream,sizeComp:Int,?hack:TTextureFormatOverride) : TDinoPlanetTexture {
 		var raw = decompressTexture(src,sizeComp);
 		var header = readTextureHeader(raw);
+		var noSwizzle : Bool = false;
+		var forceOpacity : Bool = false;
+		
+		if (hack != null) {
+			if (hack.width > 0) {
+				header.width = hack.width;
+			}
+			if (hack.height > 0) {
+				header.height = hack.height;
+			}
+			if (hack.format > -1) {
+				header.format = hack.format;
+			}
+			noSwizzle = hack.noSwizzle;
+			forceOpacity = hack.forceOpacity;
+		}
 
 		switch header.format {
 		case 0 :
 			return readTextureRGBA32(raw,header);
-			case 1 :
-				return readTextureRGBA16(raw,header);
-			case 2 :
-				return readTextureIA8(raw,header);
-			case 3 :
-				return readTextureIA4P(raw,header);
-			case 4 :
-				return readTextureIA16(raw,header);
-			case 5 :
-				return readTextureIA8T(raw,header);
-			case 6 :
-				return readTextureIA4(raw,header);
-			case 7 :
-				return readTextureCI4(raw,header);
-			default :
-				throw new Error("unknown texture format!");
+		case 1 :
+			return readTextureRGBA16(raw,header);
+		case 2 :
+			return readTextureIA8(raw,header);
+		case 3 :
+			return readTextureIA4P(raw,header);
+		case 4 :
+			return readTextureIA16(raw,header);
+		case 5 :
+			return readTextureIA8T(raw,header);
+		case 6 :
+			return readTextureIA4(raw,header);
+		case 7 :
+			return readTextureCI4(raw,header);
+		default :
+			throw new Error("unknown texture format!");
 		}
 	}
 

@@ -1,0 +1,174 @@
+{
+	"overrides" : [
+		{
+			"format" : -2,
+			"width" : 320,
+			"height" : 192,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 640,
+			"height" : 480,
+			"noSwizzle" : false,
+			"forceOpacity" : true
+		},
+		{
+			"format" : 0,
+			"width" : 640,
+			"height" : 480,
+			"noSwizzle" : false,
+			"forceOpacity" : true
+		},
+		{
+			"format" : 0,
+			"width" : 640,
+			"height" : 480,
+			"noSwizzle" : false,
+			"forceOpacity" : true
+		},
+		{
+			"format" : 0,
+			"width" : 640,
+			"height" : 480,
+			"noSwizzle" : false,
+			"forceOpacity" : true
+		},
+		{
+			"format" : -1,
+			"width" : 320,
+			"height" : 64,
+			"noSwizzle" : false,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 320,
+			"height" : 64,
+			"noSwizzle" : false,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 308,
+			"height" : 128,
+			"noSwizzle" : false,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		},
+		{
+			"format" : -1,
+			"width" : 0,
+			"height" : 0,
+			"noSwizzle" : true,
+			"forceOpacity" : false
+		}
+	],
+	"textureIDs" : [
+		687,
+		707,
+		708,
+		709,
+		710,
+		713,
+		714,
+		729,
+		762,
+		763,
+		764,
+		765,
+		766,
+		767,
+		768,
+		769,
+		770,
+		771,
+		772,
+		773,
+		774
+	]
+}

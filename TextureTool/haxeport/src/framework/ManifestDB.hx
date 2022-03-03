@@ -1,4 +1,5 @@
 package framework;
+import framework.codec.Texture.TTextureFormatOverride;
 
 // TODO : generalize
 typedef TDPFileManifest = {
@@ -6,6 +7,11 @@ typedef TDPFileManifest = {
 	texturePackHash : String,
 	name : String,
 	textures : Array<TDPManifestTextureInfo>
+}
+
+typedef TDPTextureOverrideDB = {
+	overrides : Array<TTextureFormatOverride>,
+	textureIDs : Array<Int>
 }
 
 // should split this out to 
