@@ -1,0 +1,513 @@
+<html>
+	<head>
+		<meta charset="utf-8"/>
+		<title>Dino Planet HTML Texture Tool #2</title>
+		<style type="text/css">
+		/*
+			TODO : everything, move to external CSS
+		*/
+			* { /* normalize, cuz dumb browsers */
+				margin : 0px;
+				padding : 0px;
+			}
+			body {
+				background-color : #000000;
+				color : #ffffff;
+			}
+			#navbar {
+				border : 2px solid #000080;
+				width : 300px;
+				height : 608px;
+				overflow-y : scroll;
+				display : inline-block;
+				position : relative;
+			}
+			#screen {
+				border : 2px solid #800000;
+			}
+			.attrInput{
+				display : inline-block; /* failed */
+			}
+			.wrapper {
+				border : 2px solid #00ff00;
+				display : inline-block;
+			}
+			h4,h3 {
+				display : inline-block;
+			}
+			#mainwrapper {
+				max-height:700px;
+			}
+			.navEntry {
+				border: 2px solid #ff8000;
+				max-height : 32px;
+				display : block;
+			}
+			.texPreview {
+				display : inline-block;
+			}
+			.texName {
+				position : relative;
+				top : -10px;
+				user-select : none;
+				overflow-x : hidden;
+			}
+			.navEntry:hover {
+				background-color : #00ffff;
+				color : #0080ff;
+			}
+			.navEntry:active {
+				background-color : #80ffff;
+				color : #4080ff;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="#mainwrapper" class="wrapper">
+			<div id="navbar">
+				<div class="navEntry" onclick="alert('testing!')">
+					<img width="32" height="32" class="texPreview" src="default_icon.png"/><h3 class="texName">&nbsp;&nbsp;&nbsp;&nbsp;test button</h3>
+				</div>
+			</div>
+			<canvas id="screen">NO HTML5 SUPPORT HERE</canvas>
+		</div>
+		<br><h3>BIN :&nbsp;&nbsp;</h3><input type="file" id="thefile"/>
+		<br><h3>TAB :&nbsp;&nbsp;</h3><input type="file" id="thefile2"/>
+		<br><h3>MANIFEST :&nbsp;&nbsp;</h3><input type="file" id="thefile3"/>
+		<button onclick="loadFile()">LOAD!</button>
+		<br/><h4>name: </h4><input class="attrInput" id="name-txt" type="text"/>
+			<h4>tags: </h4><input class="attrInput" id="tags-txt" type="text"/>
+			<h4>path: </h4><input class="attrInput" id="path-txt" type="text"/>
+		<br/><button onclick="rewindTexture()">previous</button><button onclick="advanceTexture()">next</button>
+		<br/><button onclick="updateEntry(currTex)">update entry</button><button onclick="exportManifest()">export manifest data</button>
+		<!--<br/><textarea id="manifest-txt"></textarea>-->
+	</body>
+	<!-- TODO :
+		add official means of generating manifest
+		manifest and .bin/.tab files should be input independent of each other,
+			the manifest should not be explicitely required to read textures,
+			it's just extremely useful to have
+		add means of re-naming the "texture pack"
+		add official means of exporting textures in native format
+		
+		fix remaining texture read errors
+		start testing TEX0, there's surely multiple errors, it looks like even hugo peters' code isn't quite reading them right, based on apparent errors in his exported PNGs
+		split-out tab reader to another script (will it ever be more than a single function? maybe 2 accounting for writing one in the future?)
+		split-out GUI
+		
+		just generally make this code not proto quality
+		
+		export textures as PNG
+			this could prove difficult...
+				(it probably will cause lag/hanging, too)
+					unless ofc, i use webworkers (ouch) , or intervals/animationframes
+						the latter isn't terribly difficult, and i already experimented with this on a different project
+		export textures "standard" N64 textures (should i keep the header and only un-do the pixel swizzling?)
+			*really, there's no truly standard N64 texture file format, just the raw data is specced
+		editor/importer
+		styles
+		is FileSaver still necesarry???
+		"project/workspace" files?
+		
+		port to haxe
+			externs needed to bind the libs, won't be fun
+				but then, game library also will need to bite this bullet, anyways
+			or, there's developing it as a native app, which has 'fun' challenges
+		port to "jai" ?
+			need deflate/zlib library, and i'm not ABOUT to port one
+				but maybe something so common is already ported?
+	-->
+	<!-- libraries and their purpose:
+		DataStream.js : less manually wrangling the DataView object (generally useful)
+		rawinflate.js : inflate decompresion (textures compressed with deflate)
+		md5.min.js    : MD5 hash function (manifest database, will be used for comparing textures later)
+		jszip-utils.min.js   : jszip utility functions (exports currently done as zipfiles)
+		jszip.min.js : jszip library
+		FileSaver.js : saving files (shim? might not be necesarry anymore, provides file-saving capability)
+	-->
+	<!--
+		compat : in theory, any modern browsers
+		
+		tested in Pale Moon, a browser built on legacy firefox code that generally struggles with the modern web
+		may or may not work in chromium-based browsers, 
+			google seems to enjoy making developing for and using web browsers difficult
+			i won't accomodate such nonsense
+	-->
+	<script type="text/javascript" src="scripts/lib/DataStream.js"></script>
+	<script type="text/javascript" src="scripts/lib/rawinflate.min.js"></script>
+	<script type="text/javascript" src="scripts/lib/md5.min.js"></script>
+	<script type="text/javascript" src="scripts/lib/jszip-utils.min.js"></script>
+	<script type="text/javascript" src="scripts/lib/jszip.min.js"></script>
+	<script type="text/javascript" src="scripts/lib/FileSaver.min.js"></script>
+	<script type="text/javascript" src="scripts/framework/assetmanifest.js"></script>
+	<script type="text/javascript" src="scripts/framework/graphics.js"></script>
+	<script type="text/javascript" src="scripts/framework/codec/texture.js"></script>
+	<script>
+		// exported files 
+		var filesout = new JSZip();
+		function saveData(name) {
+			filesout.generateAsync({type:"blob"}).then(function (blob) {
+				saveAs(blob, name + ".zip");
+			});
+		}
+		// boring HTML5 set-up
+		var scrn = document.getElementById("screen");
+		scrn.width = 800;
+		scrn.height = 608;
+		var ctx = scrn.getContext("2d");
+		// access file inputs
+		var filein = document.getElementById("thefile");
+		var filein2 = document.getElementById("thefile2");
+		var filein3 = document.getElementById("thefile3");
+		// selection GUI (needs work!)
+		var menu = document.getElementById("navbar");
+		
+		function generateMenuItem(ord) {
+			/*
+			<div class="navEntry" onclick="alert('hi there')">
+					<img width="32" height="32" class="texPreview" src="default_icon.png"/><h3 class="texName">&nbsp;&nbsp;&nbsp;&nbsp;a texture</h3>
+				</div>
+			*/
+			//console.log(ord);
+			var entryButton = document.createElement("div");
+			entryButton.setAttribute("class","navEntry");
+			entryButton.onclick = function() {
+				var tName = name_txt.value;
+				var tTags = tags_txt.value;
+				var tPath = path_txt.value;
+				updateEntry(currTex,tName,tTags,tPath);
+				currTex = ord;
+				displayTextureInfo(ord);
+			}
+			var entryIcon = new Image();
+			entryIcon.width = 32;
+			entryIcon.height = 32;
+			entryIcon.src = "default_icon.png";
+			entryIcon.setAttribute("class","texPreview");
+			var entryName = document.createElement("h3");
+			var tInfo = ROM.manifest.textures[ord];
+			//console.log(tInfo);
+			entryName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + tInfo.name;
+			entryButton.appendChild(entryIcon);
+			entryName.setAttribute("class","texName");
+			entryName.setAttribute("id","texName_" + ord);
+			entryButton.appendChild(entryName);
+			menu.appendChild(entryButton);
+		}
+		
+		function initMenu() { // 3651, todo : not hard-code this
+			for (var i=0; i < 3651; i++) {
+				generateMenuItem(i);
+			}
+		}
+		
+		// used for callback
+		var filesTotal = 3;
+		var filesLoaded = 0;
+		
+		// remnant of previous codebase
+		// TODO : create object/"class" for tex/bin pairs... 
+		var ROM = {
+			tex : {},
+			tab : {},
+			manifest : {}
+		}
+		
+		// VERY temp...
+		var theloop = {}
+		var currTex = 0;
+		function startloop() {
+			theloop = setInterval(function(){
+				var t = getTabEntry(currTex);
+				if (t.count < 2) {
+					ROM.tex.position = t.ofs;
+					var bytesRaw = decompressTexture(ROM.tex,t.size);
+					var tex_raw = bytesRaw.readUint8Array(bytesRaw._byteLength);
+					filesout.file("tex_" + currTex + ".dptf",tex_raw);
+				} else {
+					for (var i=0; i < t.count; i++) {
+						var f = t.frames[i];
+						ROM.tex.position = f.ofs;
+						var bytesRaw = decompressTexture(ROM.tex,f.size);
+						var tex_raw = bytesRaw.readUint8Array(bytesRaw._byteLength);
+						filesout.file("tex_" + currTex + "_" + i + ".dptf",tex_raw);
+					}
+				}
+				if (currTex >= 1044) { // intervals are by default: infinite, this stops it when all textures are read
+					endloop();
+					setTimeout(function(){},3000); // delay
+					saveData("TEX0");
+				}
+				currTex++;
+			}, 50);
+		}
+		// this stops the interval from running
+		function endloop() {
+			clearInterval(theloop);
+		}
+		
+		//var manifest_txt = document.getElementById("manifest-txt");
+		var name_txt = document.getElementById("name-txt");
+		var tags_txt = document.getElementById("tags-txt");
+		var path_txt = document.getElementById("path-txt");
+		
+		/* 
+			we really only care that it's a single-byte format
+			since this string conversion is purely to appease the
+			string-only MD5 hash function
+		*/
+		var strDecodeAscii = new TextDecoder("windows-1252");
+		
+		// callback function triggered when both .tab and .bin are loaded
+		function onFileLoaded() {
+			filesLoaded++;
+			if (filesLoaded < filesTotal) {
+				return;
+			}
+			// this code generates a fresh manifest
+			//parseTab();
+			// this code reads entire .bin and lists/extracts ALL textures
+			//startloop();
+			//createManifest("TEX0","Dinosaur Planet : 2001 developer test build[?] - UI and Particle");
+			initMenu();
+			currTex = 713;
+			displayTextureInfo(currTex);
+		}
+		
+		// loads the .bin and .tab
+		function loadFile() {
+			if(filein.files.length > 0 && filein2.files.length > 0 && filein3.files.length > 0) {
+				var file_texbin = filein.files[0];
+				var file_textab = filein2.files[0];
+				var file_texmf = filein3.files[0];
+				var fr_tex = new FileReader(file_texbin);
+				var fr_tab = new FileReader(file_textab);
+				var fr_mf = new FileReader(file_texmf);
+				
+				fr_tex.onload = function() {
+					var data = new DataStream(this.result,0,false);
+					ROM["tex"] = data;
+					onFileLoaded();
+				}
+				fr_tab.onload = function() {
+					var data = new DataStream(this.result,0,false);
+					ROM["tab"] = data;
+					onFileLoaded();
+					
+				}
+				fr_mf.onload = function() {
+					ROM["manifest"] = JSON.parse(this.result);
+					onFileLoaded();
+				}
+				fr_tex.readAsArrayBuffer(file_texbin);
+				fr_tab.readAsArrayBuffer(file_textab);
+				fr_mf.readAsText(file_texmf);
+			}
+		}
+		
+		// retrieves a single .tab entry based on its ordinal (order in the .bin)
+		function getTabEntry(ord) {
+			/* 
+				TODO : 
+					EOF
+			*/
+			
+			// need to be more consistent/careful with accessing and manipulating these DataStreams
+			// errors still occur...
+			var bytes = ROM.tab;
+			ROM.tab.position = (ord * 4);
+			var ofs = bytes.readUint32();
+			var endOfs = bytes.readUint32();
+			var size = (endOfs & 0x00ffffff) - (ofs & 0x00ffffff);
+			var numSubTextures = (ofs & 0xff000000) >> 24;
+			var realOfs = ofs & 0x00ffffff;
+			var out = {ofs:realOfs,size:size,count:numSubTextures,frames:[]}
+			if (numSubTextures > 1) {
+				var bytes2 = ROM.tex;
+				bytes2.position = realOfs;
+				// frame offset table
+				var table = bytes2.readUint32Array((numSubTextures + 1) * 2);
+				
+				for (var i=0; i < numSubTextures; i++) {
+					var ofs1 = table[i * 2];
+					var ofs2 = table[(i + 1) * 2];
+					var sizeComp = ofs2 - ofs1;
+					//console.log(ofs1.toString(16) , ofs2.toString(16));
+					out.frames.push({ofs:ofs1 + realOfs,size:sizeComp});
+				}
+			}
+			return out; 
+		}
+		
+		function importManifest() {
+			// ROM.manifest = JSON.parse(manifest_txt.value);
+		}
+		
+		function exportManifest() {
+			var blob = new Blob([JSON.stringify(ROM.manifest)], {type: "text/plain;charset=utf-8"});
+			saveAs(blob, "manifest.json");
+		}
+		
+		function displayTextureInfo(num) {
+			if (num > 3651 || num < 0) {
+				num = 0;
+			}
+			var tInfo = ROM.manifest.textures[num];
+			name_txt.value = tInfo.name;
+			tags_txt.value = tInfo.tags.join(",");
+			path_txt.value = tInfo.path;
+			
+			ctx.fillStyle = "#000000";
+			ctx.fillRect(0,0,scrn.width,scrn.height);
+			var t = getTabEntry(num);
+			if (t.count > 1) {
+				console.log(num,JSON.stringify(t));
+				var posX = 0;
+				var posY = 0;
+				for (var i=0; i < t.count; i++) {
+					var t2 = t.frames[i];
+					var tx = parseTexture(t2.ofs,t2.size,i,num);
+					if (tx.format > -1) {
+						drawTexture(posX,posY,tx,true);
+						posY += tx.height + 8;
+						if (posY >= scrn.height - (tx.height + 8)) {
+							posY = 0;
+							posX += tx.width + 8;
+						}
+					}
+				}
+			} else {
+				var tx = parseTexture(t.ofs,t.size,0,num);
+				//console.log(dumpTextureInfo(t.ofs,t.size,0,num));
+				if (tx.format > -1) {
+					drawTexture(0,0,tx,false);
+				}
+			}
+		}
+		
+		function findCriticalErrors() {
+			var theShitLoad = "";
+			
+			for (var num = 0; num < 3652; num++) {
+				var t = getTabEntry(num);
+				if (t.count > 1) {
+					for (var i=0; i < t.count; i++) {
+						var t2 = t.frames[i];
+						try {
+							var t2 = t.frames[i];
+							var tx = parseTexture(t2.ofs,t2.size,i,num);
+						} catch(err) {
+							theShitLoad += "tex # " + num + "_" + i + "\n";
+							theShitLoad += err.message + "\n";
+							theShitLoad += err.stack + "\n";
+							theShitLoad += dumpTextureInfo(t2.ofs,t2.size,0,num + "_" + i);
+							theShitLoad += "\n\n\n";
+						}
+					}
+				} else {
+					try {
+						var tx = parseTexture(t.ofs,t.size,i,num);
+					} catch(err) {
+						theShitLoad += "tex # " + num + "\n";
+						theShitLoad += err.message + "\n";
+						theShitLoad += err.stack + "\n";
+						theShitLoad += dumpTextureInfo(t.ofs,t.size,0,num);
+						theShitLoad += "\n\n\n";
+					}
+				}
+			}
+			
+			var blob = new Blob([theShitLoad], {type: "text/plain;charset=utf-8"});
+			saveAs(blob, "error.txt");
+		}
+		
+		function dumpAllTextureInfo() {
+			var theShitLoad = "";
+			
+			for (var num = 0; num < ROM.manifest.textures.length; num++) {
+				var t = getTabEntry(num);
+				if (t.count > 1) {
+					for (var i=0; i < t.count; i++) {
+						var t2 = t.frames[i];
+						theShitLoad += "\n\n\n" + dumpTextureInfo(t2.ofs,t2.size,0,num + "_" + i);
+					}
+				} else {
+					theShitLoad += "\n\n\n" + dumpTextureInfo(t.ofs,t.size,0,num);
+				}
+			}
+			
+			var blob = new Blob([theShitLoad], {type: "text/plain;charset=utf-8"});
+			saveAs(blob, "dump.txt");
+		}
+		
+		var theShitLoad = "";
+		var currTex2 = 0;
+		var theloop2 = {}
+		function startloop2() {
+			theShitLoad = "";
+			theloop2 = setInterval(function(){
+				console.log(currTex2);
+				var t = getTabEntry(currTex2);
+				if (t.count < 2) {
+					theShitLoad += "\n\n\n" + dumpTextureInfo(t.ofs,t.size,0,currTex2);
+				} else {
+					for (var i=0; i < t.count; i++) {
+						var t2 = t.frames[i];
+						theShitLoad += "\n\n\n" + dumpTextureInfo(t2.ofs,t2.size,0,currTex2 + "_" + i);
+					}
+				}
+				if (currTex2 > 3651) { // intervals are by default: infinite, this stops it when all textures are read
+					console.log("end me already!");
+					endloop2();
+					setTimeout(function(){},3000); // delay
+					var blob = new Blob([theShitLoad], {type: "text/plain;charset=utf-8"});
+					saveAs(blob, "dump.txt");
+				}
+				currTex2++;
+			}, 50);
+		}
+		// this stops the interval from running
+		function endloop2() {
+			clearInterval(theloop2);
+		}
+		
+		// both dedicated UI functions here!
+		function advanceTexture() {
+			var tName = name_txt.value;
+			var tTags = tags_txt.value;
+			var tPath = path_txt.value;
+			updateEntry(currTex,tName,tTags,tPath);
+			currTex += 1;
+			displayTextureInfo(currTex);
+		}
+		
+		function rewindTexture() {
+			var tName = name_txt.value;
+			var tTags = tags_txt.value;
+			var tPath = path_txt.value;
+			updateEntry(currTex,tName,tTags,tPath);
+			currTex -= 1;
+			displayTextureInfo(currTex);
+		}
+		
+		// make this look like the game's crash screen, cuz i can, and it looks cool!
+		function logError(err) {
+			// might import game font and render that, instead
+			// i actually dislike sans-serif fonts for readability reasons
+			ctx.font = "32px sans-serif";
+			ctx.fillStyle = "#ffffff";
+			// seems text draws from bottom to top, so y position needs to account for that
+			ctx.fillText("ERROR!",0,32);
+			ctx.fillStyle = "#00ff00";
+			ctx.fillText("cause : " + err.cause,0,96);
+			ctx.fillText(err.position,0,128);
+			var pY = 192; // should probably declare this earlier
+			ctx.fillStyle = "#00ffff";
+			for (var i in err.message) {
+				var curr = err.message[i];
+				ctx.fillText(i + " : " + curr,0,pY);
+				pY += 32;
+			}
+		}
+	</script>
+</html>
