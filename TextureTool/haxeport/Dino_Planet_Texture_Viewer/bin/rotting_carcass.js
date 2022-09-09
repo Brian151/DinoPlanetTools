@@ -76,7 +76,7 @@
 		var tags_txt = document.getElementById("tags-txt");
 		var path_txt = document.getElementById("path-txt");
 		
-		// callback function triggered when both .tab and .bin are loaded
+		// callback function triggered when .tab , .bin, and manifest are loaded
 		function onFileLoaded() {
 			filesLoaded++;
 			if (filesLoaded < filesTotal) {
@@ -189,7 +189,7 @@
 					var arr = createByteArray(ROM.tex.readUint8Array(t2.size));
 					var tx = parseTexture(arr,t2.size,{width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false});
 					if (tx.format > -1) {
-						drawTexture(posX,posY,tx,true);
+						window.drawTexture(posX,posY,tx,true);
 						posY += tx.height + 8;
 						if (posY >= scrn.height - (tx.height + 8)) {
 							posY = 0;
@@ -203,7 +203,7 @@
 				var tx = parseTexture(arr,t.size,{width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false});
 				//console.log(dumpTextureInfo(t.ofs,t.size,0,num));
 				if (tx.format > -1) {
-					drawTexture(0,0,tx,false);
+					window.drawTexture(0,0,tx,false);
 				}
 			}
 		}
@@ -302,125 +302,27 @@
 			}
 		}
 		
-				function drawTexture(x,y,texture,forceOpacity) {
-			var turtle = new ImageData(texture.width,texture.height);
-			var size = texture.width * texture.height;
-			var pal = texture.palette;
-			var f = texture.format;
-			console.log(f);
-			if (f == 23 || f == 7) { // CI formats have a palette
-				/* 
-					it made more sense to create two copies of this loop than do an extra if statement on every iteration
-					does it matter much? probably not
-				*/
-				if(forceOpacity) {
-					for (var i=0; i < size; i++) {
-						var base = i * 4;
-						var basePal = texture.pixels[i] * 4;
-						turtle.data[base + 0] = texture.palette[basePal + 0];
-						turtle.data[base + 1] = texture.palette[basePal + 1];
-						turtle.data[base + 2] = texture.palette[basePal + 2];
-						turtle.data[base + 3] = 255;
-					}
-				} else {
-					for (var i=0; i < size; i++) {
-						var base = i * 4;
-						var basePal = texture.pixels[i] * 4;
-						turtle.data[base + 0] = texture.palette[basePal + 0];
-						turtle.data[base + 1] = texture.palette[basePal + 1];
-						turtle.data[base + 2] = texture.palette[basePal + 2];
-						turtle.data[base + 3] = texture.palette[basePal + 3];
-					}
-				}
-			} else if (f == 1 || f == 0 || f == 17 || f == 2 || f == 5 || f == 6 || f == 4 || f == 3) { // other formats are raw pixels
-				if(forceOpacity) {
-					for (var i=0; i < size; i++) {
-						var base = i * 4;
-						turtle.data[base + 0] = texture.pixels[base + 0];
-						turtle.data[base + 1] = texture.pixels[base + 1];
-						turtle.data[base + 2] = texture.pixels[base + 2];
-						turtle.data[base + 3] = 255;
-					}
-				} else {
-					for (var i=0; i < size; i++) {
-						var base = i * 4;
-						turtle.data[base + 0] = texture.pixels[base + 0];
-						turtle.data[base + 1] = texture.pixels[base + 1];
-						turtle.data[base + 2] = texture.pixels[base + 2];
-						turtle.data[base + 3] = texture.pixels[base + 3];
-					}
-				}
-			}
-			//console.log(turtle);
-			//ctx.putImageData(turtle,x,y);
-			drawImageData(turtle,x,y,1);
-		}
+	function drawTexture(x,y,texture,forceOpacity) {
+		// 9/9/2022 3:03 PM MST : moved to Main.drawTexture
+	}
 		
-		function drawImageData(iDat,x,y,scale) {
-	var posX = x;
-	var posY = y;
-	var posP = 0;
-	var arrP = iDat.data;
-	// console.log(iDat);
-	for (var iY = 0; iY < iDat.height; iY++) {
-		for (var iX = 0; iX < iDat.width; iX++) {
-			var base = posP * 4;
-			var r = arrP[base];
-			var g = arrP[base + 1];
-			var b = arrP[base + 2];
-			var a = arrP[base + 3];
-			ctx.fillStyle = "#" + hexa(r) + hexa(g) + hexa(b) + hexa(a);
-			ctx.fillRect(posX,posY,scale,scale);
-			posX += scale;
-			posP++;
-		}
-		posY += scale;
-		posX = x;
+	function drawImageData(iDat,x,y,scale) {
+		// 9/9/2022 3:36 PM MST : moved to Main.drawImageData
 	}
-}
 
-function drawPalette(p) {
-			var w = scrn.width;
-			var h = scrn.height;
-			//console.log(w, h);
-			var baseX = w - (4 * 16);
-			var posX = baseX;
-			var posY = 0;
-			for (var i=0; i < 16; i++) {
-				if (i > 0 && !(i % 4)) {
-					posX = baseX;
-					posY += 16;
-				}
-				var base = i * 4;
-				var r = p[base];
-				var g = p[base + 1];
-				var b = p[base + 2];
-				/*
-					strict format expectations, what a pain in the ass!
-					r,g,b as ints, a as a float
-					comma, SPACE between each entry (yes, this matters...)
-				*/
-				var col = "rgba(" + [Math.floor(r),Math.floor(g),Math.floor(b)].join(", ") + ", 1)";
-				//console.log(col);
-				//console.log(posX,posY);
-				ctx.fillStyle = col;
-				ctx.fillRect(posX,posY,16,16);
-				posX += 16;
-			}
-		}
-
-function hexa(n) {
-	if (n < 16) {
-		return "0" + n.toString(16);
+	function drawPalette(p) {
+		// 9/9/2022 : 4:00 PM MST : moved to Main.drawPalette
 	}
-	return n.toString(16);
-}
+
+	function hexa(n) {
+		// 9/9/2022 3:45 PM MST : moved to Main.hexa
+	}
 
 function updateEntry(num,name,tags,path) {
 		ROM.manifest.textures[num].name = name;
 		ROM.manifest.textures[num].tags = tags.split(",");
 		ROM.manifest.textures[num].path = path;
-		// can this be de-coupled?
+		// how to de-couple this...
 		var menuName = document.getElementById("texName_" + num);
 		menuName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + name_txt.value;
 	}
@@ -437,6 +339,6 @@ function updateEntry(num,name,tags,path) {
 		$export.ROM = ROM;
 		$export.rewindTexture = rewindTexture;
 		$export.advanceTexture = advanceTexture;
-		// $export.drawTexture = drawTexture; // don't need to do this...
-		
+		$export.ctx = ctx;
+		$export.scrn = scrn;
 })(this);
