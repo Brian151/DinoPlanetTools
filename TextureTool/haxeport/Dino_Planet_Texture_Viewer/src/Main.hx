@@ -9,6 +9,7 @@ import haxe.io.UInt32Array;
 import js.Syntax;
 import js.html.ImageData;
 import framework.ByteThingyWhatToNameIt;
+import framework.codec.BinPack;
 
 class Main 
 {
@@ -19,6 +20,7 @@ class Main
 		Syntax.code("window.parseTexture = {0}",Texture.decodeTexture);
 		Syntax.code("window.createByteArray = function(src) {var buf = {0}(src.length);var arr = new {1}(buf,false);arr.writeUint8Array(src);arr.position = 0;return arr;}", Bytes.alloc, ByteThingyWhatToNameIt);
 		Syntax.code("window.drawTexture = {0}", drawTexture);
+		Syntax.code("window.ROM.bin = new {0}()", BinPack);
 	}
 	
 	static function drawTexture(x:Int,y:Int,texture:TDinoPlanetTexture,forceOpacity:Bool) : Void {

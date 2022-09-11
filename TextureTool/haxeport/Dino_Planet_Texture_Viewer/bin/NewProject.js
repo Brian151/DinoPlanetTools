@@ -4,6 +4,7 @@ Main.main = function() {
 	window.parseTexture = framework_codec_Texture.decodeTexture;
 	window.createByteArray = function(src) {var buf = haxe_io_Bytes.alloc(src.length);var arr = new framework_ByteThingyWhatToNameIt(buf,false);arr.writeUint8Array(src);arr.position = 0;return arr;}
 	window.drawTexture = Main.drawTexture;
+	window.ROM.bin = new framework_codec_BinPack();
 };
 Main.drawTexture = function(x,y,texture,forceOpacity) {
 	var turtle = new ImageData(texture.width,texture.height);
@@ -247,6 +248,45 @@ framework_ByteThingyWhatToNameIt.prototype = {
 			this.writeUint8Array(compressed);
 		}
 		return compressed;
+	}
+};
+var framework_codec_BinPack = function() {
+};
+framework_codec_BinPack.prototype = {
+	loadData: function(bin) {
+		this.data = bin;
+	}
+	,loadOffsets: function(tab) {
+		this.offsetTable = tab;
+	}
+	,getItem: function(ord) {
+		console.log("getItem() runs!");
+		this.offsetTable.position = ord * 4;
+		var ofs = this.offsetTable.readUint32(false);
+		var endOfs = this.offsetTable.readUint32(false);
+		var size = (endOfs & 16777215) - (ofs & 16777215);
+		var numSubTextures = (ofs & -16777216) >> 24;
+		var realOfs = ofs & 16777215;
+		this.data.position = realOfs;
+		var outBuf = new haxe_io_Bytes(new ArrayBuffer(size));
+		var outDat = new framework_ByteThingyWhatToNameIt(outBuf,false);
+		outDat.writeUint8Array(this.data.readUint8Array(size));
+		var out = { resCount : numSubTextures, resources : [{ ofs : realOfs, size : size}], data : outDat};
+		if(numSubTextures > 1) {
+			this.data.position = realOfs;
+			out.resources.pop();
+			var table = this.data.readUint32Array((numSubTextures + 1) * 2,false);
+			var _g = 0;
+			var _g1 = numSubTextures;
+			while(_g < _g1) {
+				var i = _g++;
+				var ofs1 = table[i * 2];
+				var ofs2 = table[(i + 1) * 2];
+				var sizeComp = ofs2 - ofs1;
+				out.resources.push({ ofs : ofs1 + realOfs, size : sizeComp});
+			}
+		}
+		return out;
 	}
 };
 var framework_codec_Texture = function() { };

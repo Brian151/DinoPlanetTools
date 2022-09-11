@@ -64,10 +64,10 @@
 		var filesLoaded = 0;
 		
 		// remnant of previous codebase
-		// TODO : create object/"class" for tex/bin pairs... 
 		var ROM = {
-			tex : {},
-			tab : {},
+			/*tex : {},
+			tab : {},*/ // 9/11/2022 3:45 PM MST : replaced by framework.codec.BinPack
+			bin : {},
 			manifest : {}
 		}
 		
@@ -103,15 +103,20 @@
 				var fr_mf = new FileReader(file_texmf);
 				
 				fr_tex.onload = function() {
-					var data = new DataStream(this.result,0,false);
-					ROM["tex"] = data;
+				//	var data = new DataStream(this.result,0,false);
+				//	ROM["tex"] = data;
+				//	ROM.tex.position = 0;
+					var arr = createByteArray(new Uint8Array(this.result));
+					ROM.bin.loadData(arr);
 					onFileLoaded();
 				}
 				fr_tab.onload = function() {
-					var data = new DataStream(this.result,0,false);
-					ROM["tab"] = data;
+				//	var data = new DataStream(this.result,0,false);
+				//	ROM["tab"] = data;
+				//	ROM.tab.position = 0;
+					var arr = createByteArray(new Uint8Array(this.result));
+					ROM.bin.loadOffsets(arr);
 					onFileLoaded();
-					
 				}
 				fr_mf.onload = function() {
 					ROM["manifest"] = JSON.parse(this.result);
@@ -125,36 +130,7 @@
 		
 		// retrieves a single .tab entry based on its ordinal (order in the .bin)
 		function getTabEntry(ord) {
-			/* 
-				TODO : 
-					EOF
-			*/
-			
-			// need to be more consistent/careful with accessing and manipulating these DataStreams
-			// errors still occur...
-			var bytes = ROM.tab;
-			ROM.tab.position = (ord * 4);
-			var ofs = bytes.readUint32();
-			var endOfs = bytes.readUint32();
-			var size = (endOfs & 0x00ffffff) - (ofs & 0x00ffffff);
-			var numSubTextures = (ofs & 0xff000000) >> 24;
-			var realOfs = ofs & 0x00ffffff;
-			var out = {ofs:realOfs,size:size,count:numSubTextures,frames:[]}
-			if (numSubTextures > 1) {
-				var bytes2 = ROM.tex;
-				bytes2.position = realOfs;
-				// frame offset table
-				var table = bytes2.readUint32Array((numSubTextures + 1) * 2);
-				
-				for (var i=0; i < numSubTextures; i++) {
-					var ofs1 = table[i * 2];
-					var ofs2 = table[(i + 1) * 2];
-					var sizeComp = ofs2 - ofs1;
-					//console.log(ofs1.toString(16) , ofs2.toString(16));
-					out.frames.push({ofs:ofs1 + realOfs,size:sizeComp});
-				}
-			}
-			return out; 
+			// 9/10/2022 : 4:14 PM MST : replaced by framework.codec.BinPack.getItem()
 		}
 		
 		function importManifest() {
@@ -177,19 +153,31 @@
 			
 			ctx.fillStyle = "#000000";
 			ctx.fillRect(0,0,scrn.width,scrn.height);
-			var t = getTabEntry(num);
-			if (t.count > 1) {
-				console.log(num,JSON.stringify(t));
+			// var t = getTabEntry(num);
+			var t = ROM.bin.getItem(num);
+			if (t.resCount > 1) {
+				console.log(t);
+				/*(var e = new Error();
+				var e2 = {
+					cause : "Array textures are broken... D:",
+					position : "RottingCarcass : 159",
+					message : ["ugh...","gotta fix that next!"]
+				}
+				logError(e2);
+				//return;*/
+				
+				// console.log(num,JSON.stringify(t));
 				var posX = 0;
 				var posY = 0;
-				for (var i=0; i < t.count; i++) {
-					var t2 = t.frames[i];
-					//var tx = parseTexture(t2.ofs,t2.size,i,num);
-					ROM.tex.position = t2.ofs;
-					var arr = createByteArray(ROM.tex.readUint8Array(t2.size));
+				for (var i=0; i < t.resCount; i++) {
+					var t2 = t.resources[i];
+					// var tx = parseTexture(t2.ofs,t2.size,i,num);
+					// ROM.tex.position = t2.ofs;
+					ROM.bin.data.position = t2.ofs;
+					var arr = createByteArray(ROM.bin.data.readUint8Array(t2.size));
 					var tx = parseTexture(arr,t2.size,{width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false});
 					if (tx.format > -1) {
-						window.drawTexture(posX,posY,tx,true);
+						window.drawTexture(posX,posY,tx,false);
 						posY += tx.height + 8;
 						if (posY >= scrn.height - (tx.height + 8)) {
 							posY = 0;
@@ -198,9 +186,10 @@
 					}
 				}
 			} else {
-				ROM.tex.position = t.ofs;
-				var arr = createByteArray(ROM.tex.readUint8Array(t.size));
-				var tx = parseTexture(arr,t.size,{width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false});
+				// ROM.tex.position = t.resources[0].ofs;
+				ROM.bin.data.position = t.resources[0].ofs;
+				var arr = createByteArray(ROM.bin.data.readUint8Array(t.resources[0].size));
+				var tx = parseTexture(arr,t.resources[0].size,{width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false});
 				//console.log(dumpTextureInfo(t.ofs,t.size,0,num));
 				if (tx.format > -1) {
 					window.drawTexture(0,0,tx,false);
@@ -209,58 +198,11 @@
 		}
 		
 		function findCriticalErrors() {
-			var theShitLoad = "";
-			
-			for (var num = 0; num < 3652; num++) {
-				var t = getTabEntry(num);
-				if (t.count > 1) {
-					for (var i=0; i < t.count; i++) {
-						var t2 = t.frames[i];
-						try {
-							var t2 = t.frames[i];
-							var tx = parseTexture(t2.ofs,t2.size,i,num);
-						} catch(err) {
-							theShitLoad += "tex # " + num + "_" + i + "\n";
-							theShitLoad += err.message + "\n";
-							theShitLoad += err.stack + "\n";
-							theShitLoad += dumpTextureInfo(t2.ofs,t2.size,0,num + "_" + i);
-							theShitLoad += "\n\n\n";
-						}
-					}
-				} else {
-					try {
-						var tx = parseTexture(t.ofs,t.size,i,num);
-					} catch(err) {
-						theShitLoad += "tex # " + num + "\n";
-						theShitLoad += err.message + "\n";
-						theShitLoad += err.stack + "\n";
-						theShitLoad += dumpTextureInfo(t.ofs,t.size,0,num);
-						theShitLoad += "\n\n\n";
-					}
-				}
-			}
-			
-			var blob = new Blob([theShitLoad], {type: "text/plain;charset=utf-8"});
-			saveAs(blob, "error.txt");
+			// 9/11/2022 3:47 PM MST : removed, no longer needed
 		}
 		
 		function dumpAllTextureInfo() {
-			var theShitLoad = "";
-			
-			for (var num = 0; num < ROM.manifest.textures.length; num++) {
-				var t = getTabEntry(num);
-				if (t.count > 1) {
-					for (var i=0; i < t.count; i++) {
-						var t2 = t.frames[i];
-						theShitLoad += "\n\n\n" + dumpTextureInfo(t2.ofs,t2.size,0,num + "_" + i);
-					}
-				} else {
-					theShitLoad += "\n\n\n" + dumpTextureInfo(t.ofs,t.size,0,num);
-				}
-			}
-			
-			var blob = new Blob([theShitLoad], {type: "text/plain;charset=utf-8"});
-			saveAs(blob, "dump.txt");
+			// 9/11/2022 3:48 PM MST : removed, no longer needed
 		}
 		
 		// both dedicated UI functions here!
@@ -331,7 +273,7 @@ function updateEntry(num,name,tags,path) {
 		$export.generateMenuItem = generateMenuItem;
 		$export.initMenu = initMenu;
 		$export.loadFile = loadFile;
-		$export.getTabEntry = getTabEntry;
+		//$export.getTabEntry = getTabEntry;
 		$export.importManifest = importManifest;
 		$export.exportManifest = exportManifest;
 		$export.displayTextureInfo = displayTextureInfo;

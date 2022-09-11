@@ -1,74 +1,83 @@
 package framework.codec;
 import framework.ByteThingyWhatToNameIt;
-import js.lib.ArrayBuffer;
-import js.lib.Uint32Array;
+import haxe.io.Bytes;
+import haxe.io.UInt32Array;
+import js.Syntax;
 
-// probably a nicer way to handle this
-typedef BinPackResource = {
-	ofs : Int,
-	size : Int,
-	count : Int,
-	frames : Array<BinPackSubResource>,
+typedef BinPackFile = {
+	resCount : Int,
+	resources : Array<BinPackResource>,
 	data : ByteThingyWhatToNameIt
 }
 
-typedef BinPackSubResource = {
+typedef BinPackResource = {
 	ofs : Int,
 	size : Int
 }
 
 // STILL WIP
+
+// might need to do something slightly different for
+// each/certain tabs, as they're not entirely standarized/generalized[?]
 class BinPack 
 {
+	// is there a valid reason Rare made bin/tab separate files?
 	var data : ByteThingyWhatToNameIt;
 	var offsetTable : ByteThingyWhatToNameIt;
-	// bin/tab processing probably will be merged here
-	// for all intents and purposes, these pairs function as 1 file
-	// a tab with no bin has no content
-	// a bin with no tab has no layout/structure
-	// is there a valid reason rare made them separate files?
 	
-	// this might need to do something slightly different for
-	// each/certain tabs, as they're not entirely standarized/generalized[?]
-	public function new(bin:ByteThingyWhatToNameIt,tab:ByteThingyWhatToNameIt) {
+	
+	public function new() {
+		
+	}
+	
+	// not entirely a fan of this... 
+	public function loadData(bin:ByteThingyWhatToNameIt) {
 		data = bin;
+	}
+	
+	public function loadOffsets(tab:ByteThingyWhatToNameIt) {
 		offsetTable = tab;
 	}
 	
-	public function getItem(ord:Int) {
+	public function getItem(ord:Int):BinPackFile {
 		/* 
 			TODO : 
 				EOF
 		*/
+		Syntax.code("console.log(\"getItem() runs!\")");
 		offsetTable.position = (ord * 4);
-		var ofs:Int = offsetTable.readUint32();
-		var endOfs:Int = offsetTable.readUint32();
+		var ofs:Int = offsetTable.readUint32(false);
+		var endOfs:Int = offsetTable.readUint32(false);
 		var size:Int = (endOfs & 0x00ffffff) - (ofs & 0x00ffffff);
 		var numSubTextures:Int = (ofs & 0xff000000) >> 24;
 		var realOfs:Int = ofs & 0x00ffffff;
 		data.position = realOfs;
-		var outDat : new DataStream(new ArrayBuffer(size), 0, false);
+		var outBuf:Bytes = Bytes.alloc(size);
+		var outDat:ByteThingyWhatToNameIt = new ByteThingyWhatToNameIt(outBuf, false);
 		outDat.writeUint8Array(data.readUint8Array(size));
-		var out:BinPackResource = {
-			ofs:realOfs,
-			size:size,
-			count:numSubTextures,
-			frames:[],
-			data : outDat 
+		var out:BinPackFile = {
+			resCount:numSubTextures,
+			resources: [{
+				ofs : realOfs,
+				size : size
+			}],
+			data : outDat
 		}
 		if (numSubTextures > 1) {
 			data.position = realOfs;
-			// frame offset table
-			var table:Uint32Array = data.readUint32Array((numSubTextures + 1) * 2);
+			// array is populated by reading offset table, remove the original entry
+			out.resources.pop(); 
+			// resource offset table
+			var table:UInt32Array = data.readUint32Array((numSubTextures + 1) * 2,false);
 				
 			for (i in 0...numSubTextures) {
 				var ofs1:Int = table[i * 2];
 				var ofs2:Int = table[(i + 1) * 2];
 				var sizeComp:Int = ofs2 - ofs1;
-				//console.log(ofs1.toString(16) , ofs2.toString(16));
-				out.frames.push(
+				//console.log(Main.hexa(ofs1), Main.hexa(ofs2));
+				out.resources.push(
 					{
-						ofs:ofs1,
+						ofs:ofs1 + realOfs,
 						size:sizeComp
 					}
 				);
