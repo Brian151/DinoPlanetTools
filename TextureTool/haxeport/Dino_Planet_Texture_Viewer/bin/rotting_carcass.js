@@ -19,6 +19,7 @@
 		var filein3 = document.getElementById("thefile3");
 		// selection GUI (needs work!)
 		var menu = document.getElementById("navbar");
+		var currTex = 0;
 		
 		function generateMenuItem(ord) {
 			/*
@@ -92,6 +93,9 @@
 			displayTextureInfo(currTex);
 		}
 		
+		// 10/25/2022 3:52 PM MST : hacked-in, refactor pending
+		var isTex0 = false;
+		
 		// loads the .bin and .tab
 		function loadFile() {
 			if(filein.files.length > 0 && filein2.files.length > 0 && filein3.files.length > 0) {
@@ -101,6 +105,12 @@
 				var fr_tex = new FileReader(file_texbin);
 				var fr_tab = new FileReader(file_textab);
 				var fr_mf = new FileReader(file_texmf);
+				//console.log(file_texbin);
+				if (file_texbin.name == "TEX0.bin") { // 10/25/2022 3:53 PM MST : hacked-in, refactor pending
+					isTex0 = true;
+				} else {
+					isTex0 = false;
+				}
 				
 				fr_tex.onload = function() {
 				//	var data = new DataStream(this.result,0,false);
@@ -175,9 +185,11 @@
 					// ROM.tex.position = t2.ofs;
 					ROM.bin.data.position = t2.ofs;
 					var arr = createByteArray(ROM.bin.data.readUint8Array(t2.size));
-					var tx = parseTexture(arr,t2.size,{width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false});
+					var ovr = getOVR(num);
+					
+					var tx = parseTexture(arr,t2.size,ovr);
 					if (tx.format > -1) {
-						window.drawTexture(posX,posY,tx,false);
+						window.drawTexture(posX,posY,tx,ovr.forceOpacity);
 						posY += tx.height + 8;
 						if (posY >= scrn.height - (tx.height + 8)) {
 							posY = 0;
@@ -189,12 +201,28 @@
 				// ROM.tex.position = t.resources[0].ofs;
 				ROM.bin.data.position = t.resources[0].ofs;
 				var arr = createByteArray(ROM.bin.data.readUint8Array(t.resources[0].size));
-				var tx = parseTexture(arr,t.resources[0].size,{width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false});
+				var ovr = getOVR(num);
+				var tx = parseTexture(arr,t.resources[0].size,ovr);
 				//console.log(dumpTextureInfo(t.ofs,t.size,0,num));
 				if (tx.format > -1) {
-					window.drawTexture(0,0,tx,false);
+					window.drawTexture(0,0,tx,ovr.forceOpacity);
 				}
 			}
+		}
+		
+		// 10/20/2022 12:09 PM MST : hacked-in, refactor pending
+		function getOVR(id) {
+			if (!isTex0) { // 10/25/2022 3:54 PM MST : hacked-in, refactor pending
+				return {width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false};
+			}
+			for (var i=0; i < TEXOVR.overrides.length; i++) {
+				var curr = TEXOVR.overrides[i];
+				if (curr.id == id) {
+					console.log("overrides for TEX # " + id + " : " + JSON.stringify(curr));
+					return curr;
+				}
+			}
+			return {width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false};
 		}
 		
 		function findCriticalErrors() {

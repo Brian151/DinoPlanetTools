@@ -310,21 +310,23 @@ framework_codec_Texture.decodeTexture = function(src,sizeComp,hack) {
 	}
 	switch(header.format) {
 	case 0:
-		return framework_codec_Texture.readTextureRGBA32(raw,header);
+		return framework_codec_Texture.readTextureRGBA32(raw,header,noSwizzle);
 	case 1:
-		return framework_codec_Texture.readTextureRGBA16(raw,header);
+		return framework_codec_Texture.readTextureRGBA16(raw,header,noSwizzle);
 	case 2:
-		return framework_codec_Texture.readTextureIA8(raw,header);
+		return framework_codec_Texture.readTextureIA8(raw,header,noSwizzle);
 	case 3:
-		return framework_codec_Texture.readTextureIA4P(raw,header);
+		return framework_codec_Texture.readTextureIA4P(raw,header,noSwizzle);
 	case 4:
-		return framework_codec_Texture.readTextureIA16(raw,header);
+		return framework_codec_Texture.readTextureIA16(raw,header,noSwizzle);
 	case 5:
-		return framework_codec_Texture.readTextureIA8T(raw,header);
+		return framework_codec_Texture.readTextureIA8T(raw,header,noSwizzle);
 	case 6:
-		return framework_codec_Texture.readTextureIA4(raw,header);
+		return framework_codec_Texture.readTextureIA4(raw,header,noSwizzle);
 	case 7:
-		return framework_codec_Texture.readTextureCI4(raw,header);
+		return framework_codec_Texture.readTextureCI4(raw,header,noSwizzle);
+	case 16:
+		return framework_codec_Texture.readTextureI8(raw,header,noSwizzle);
 	default:
 		throw new Error("unknown texture format! (" + header.format + ")");
 	}
@@ -420,7 +422,7 @@ framework_codec_Texture.readPalette = function(src,numColors) {
 };
 framework_codec_Texture.writePalette = function() {
 };
-framework_codec_Texture.readTextureIA4P = function(src,header) {
+framework_codec_Texture.readTextureIA4P = function(src,header,noSwizzle) {
 	var width = header.width;
 	var height = header.height;
 	var format = header.format;
@@ -438,7 +440,9 @@ framework_codec_Texture.readTextureIA4P = function(src,header) {
 	while(_g < _g1) {
 		var i = _g++;
 		if(i > 0 && i % width == 0) {
-			++currentRow;
+			if(!noSwizzle) {
+				++currentRow;
+			}
 		}
 		if(bitsLeft <= 0) {
 			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
@@ -479,7 +483,7 @@ framework_codec_Texture.readTextureIA4P = function(src,header) {
 	var this1 = new Uint8Array(4);
 	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
 };
-framework_codec_Texture.readTextureIA16 = function(src,header) {
+framework_codec_Texture.readTextureIA16 = function(src,header,noSwizzle) {
 	var width = header.width;
 	var height = header.height;
 	var format = header.format;
@@ -497,7 +501,9 @@ framework_codec_Texture.readTextureIA16 = function(src,header) {
 	while(_g < _g1) {
 		var j = _g++;
 		if(j > 0 && j % width != 0) {
-			++currentRow;
+			if(!noSwizzle) {
+				++currentRow;
+			}
 		}
 		if(bitsLeft <= 0) {
 			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
@@ -527,7 +533,7 @@ framework_codec_Texture.readTextureIA16 = function(src,header) {
 	var this1 = new Uint8Array(4);
 	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
 };
-framework_codec_Texture.readTextureIA8 = function(src,header) {
+framework_codec_Texture.readTextureIA8 = function(src,header,noSwizzle) {
 	var width = header.width;
 	var height = header.height;
 	var format = header.format;
@@ -545,7 +551,9 @@ framework_codec_Texture.readTextureIA8 = function(src,header) {
 	while(_g < _g1) {
 		var j = _g++;
 		if(j > 0 && j % width != 0) {
-			++currentRow;
+			if(!noSwizzle) {
+				++currentRow;
+			}
 		}
 		if(bitsleft <= 0) {
 			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
@@ -584,7 +592,7 @@ framework_codec_Texture.readTextureIA8 = function(src,header) {
 	var this1 = new Uint8Array(4);
 	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
 };
-framework_codec_Texture.readTextureIA4 = function(src,header) {
+framework_codec_Texture.readTextureIA4 = function(src,header,noSwizzle) {
 	var width = header.width;
 	var height = header.height;
 	var format = header.format;
@@ -602,7 +610,9 @@ framework_codec_Texture.readTextureIA4 = function(src,header) {
 	while(_g < _g1) {
 		var j = _g++;
 		if(j > 0 && j % width != 0) {
-			++currentRow;
+			if(!noSwizzle) {
+				++currentRow;
+			}
 		}
 		if(bitsLeft <= 0) {
 			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
@@ -643,7 +653,7 @@ framework_codec_Texture.readTextureIA4 = function(src,header) {
 	var this1 = new Uint8Array(4);
 	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
 };
-framework_codec_Texture.readTextureIA8T = function(src,header) {
+framework_codec_Texture.readTextureIA8T = function(src,header,noSwizzle) {
 	var width = header.width;
 	var height = header.height;
 	var format = header.format;
@@ -661,7 +671,9 @@ framework_codec_Texture.readTextureIA8T = function(src,header) {
 	while(_g < _g1) {
 		var j = _g++;
 		if(j > 0 && j % width != 0) {
-			++currentRow;
+			if(!noSwizzle) {
+				++currentRow;
+			}
 		}
 		if(bitsLeft <= 0) {
 			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
@@ -700,7 +712,7 @@ framework_codec_Texture.readTextureIA8T = function(src,header) {
 	var this1 = new Uint8Array(4);
 	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
 };
-framework_codec_Texture.readTextureRGBA32 = function(src,header) {
+framework_codec_Texture.readTextureRGBA32 = function(src,header,noSwizzle) {
 	var width = header.width;
 	var height = header.height;
 	var format = header.format;
@@ -716,7 +728,9 @@ framework_codec_Texture.readTextureRGBA32 = function(src,header) {
 	while(_g < _g1) {
 		var j = _g++;
 		if(j > 0 && j % width != 0) {
-			++currentRow;
+			if(!noSwizzle) {
+				++currentRow;
+			}
 		}
 		if(bitsLeft <= 0) {
 			bitSrc = framework_codec_Texture.deSwizzleBits128(src,currentRow);
@@ -744,7 +758,7 @@ framework_codec_Texture.readTextureRGBA32 = function(src,header) {
 	var this1 = new Uint8Array(4);
 	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
 };
-framework_codec_Texture.readTextureRGBA16 = function(src,header) {
+framework_codec_Texture.readTextureRGBA16 = function(src,header,noSwizzle) {
 	var width = header.width;
 	var height = header.height;
 	var format = header.format;
@@ -762,7 +776,9 @@ framework_codec_Texture.readTextureRGBA16 = function(src,header) {
 	while(_g < _g1) {
 		var j = _g++;
 		if(j > 0 && j % width != 0) {
-			++currentRow;
+			if(!noSwizzle) {
+				++currentRow;
+			}
 		}
 		if(bitsLeft <= 0) {
 			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
@@ -790,7 +806,7 @@ framework_codec_Texture.readTextureRGBA16 = function(src,header) {
 	var this1 = new Uint8Array(4);
 	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
 };
-framework_codec_Texture.readTextureCI4 = function(src,header) {
+framework_codec_Texture.readTextureCI4 = function(src,header,noSwizzle) {
 	var width = header.width;
 	var height = header.height;
 	var format = header.format;
@@ -808,7 +824,9 @@ framework_codec_Texture.readTextureCI4 = function(src,header) {
 	while(_g < _g1) {
 		var j = _g++;
 		if(j > 0 && j % width != 0) {
-			++currentRow;
+			if(!noSwizzle) {
+				++currentRow;
+			}
 		}
 		if(bitsLeft <= 0) {
 			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
@@ -830,6 +848,65 @@ framework_codec_Texture.readTextureCI4 = function(src,header) {
 	}
 	var palette = framework_codec_Texture.readPalette(src,16);
 	return { format : format, palette : palette, width : width, height : height, pixels : pixels};
+};
+framework_codec_Texture.readTextureI8 = function(src,header,noSwizzle) {
+	var width = header.width;
+	var height = header.height;
+	var format = 5;
+	var imageSize = width * height;
+	var this1 = new Uint8Array(imageSize * 4);
+	var pixels = this1;
+	src.position = 32;
+	var bitsLeft = 64;
+	var currentRow = 0;
+	var bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
+	var bits1 = bitSrc[0];
+	var bits2 = bitSrc[1];
+	var _g = 0;
+	var _g1 = imageSize;
+	while(_g < _g1) {
+		var j = _g++;
+		if(j > 0 && j % width != 0) {
+			if(!noSwizzle) {
+				++currentRow;
+			}
+		}
+		if(bitsLeft <= 0) {
+			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
+			bits1 = bitSrc[0];
+			bits2 = bitSrc[1];
+			bitsLeft = 64;
+		}
+		var pix = 0;
+		var r = 0;
+		var g = 0;
+		var b = 0;
+		var a = 0;
+		if(bitsLeft <= 32) {
+			pix = (bits2 & -16777216) >>> 24;
+			a = 255;
+			bits2 <<= 8;
+			r = pix;
+			g = pix;
+			b = pix;
+			bitsLeft -= 8;
+		} else {
+			pix = (bits1 & -16777216) >>> 24;
+			a = 255;
+			bits1 <<= 8;
+			r = pix;
+			g = pix;
+			b = pix;
+			bitsLeft -= 8;
+		}
+		var base = j * 4;
+		pixels[base] = r;
+		pixels[base + 1] = g;
+		pixels[base + 2] = b;
+		pixels[base + 3] = a;
+	}
+	var this1 = new Uint8Array(4);
+	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
 };
 var haxe_io_Bytes = function(data) {
 	this.length = data.byteLength;

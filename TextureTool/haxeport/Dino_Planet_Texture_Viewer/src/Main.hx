@@ -55,7 +55,7 @@ class Main
 			}
 			drawPallete(texture.palette);
 		} else if (f == 1 || f == 0 || f == 17 || f == 2 || f == 5 || f == 6 || f == 4 || f == 3) { // other formats are raw pixels
-			if(forceOpacity) {
+			if (forceOpacity) {
 				for (i in 0...size) {
 					var base:Int = i * 4;
 					turtle.data[base + 0] = texture.pixels[base + 0];
