@@ -22,42 +22,11 @@
 		var currTex = 0;
 		
 		function generateMenuItem(ord) {
-			/*
-			<div class="navEntry" onclick="alert('hi there')">
-					<img width="32" height="32" class="texPreview" src="default_icon.png"/><h3 class="texName">&nbsp;&nbsp;&nbsp;&nbsp;a texture</h3>
-				</div>
-			*/
-			//console.log(ord);
-			var entryButton = document.createElement("div");
-			entryButton.setAttribute("class","navEntry");
-			entryButton.onclick = function() {
-				var tName = name_txt.value;
-				var tTags = tags_txt.value;
-				var tPath = path_txt.value;
-				updateEntry(currTex,tName,tTags,tPath);
-				currTex = ord;
-				displayTextureInfo(ord);
-			}
-			var entryIcon = new Image();
-			entryIcon.width = 32;
-			entryIcon.height = 32;
-			entryIcon.src = "default_icon.png";
-			entryIcon.setAttribute("class","texPreview");
-			var entryName = document.createElement("h3");
-			var tInfo = ROM.manifest.textures[ord];
-			//console.log(tInfo);
-			entryName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + tInfo.name;
-			entryButton.appendChild(entryIcon);
-			entryName.setAttribute("class","texName");
-			entryName.setAttribute("id","texName_" + ord);
-			entryButton.appendChild(entryName);
-			menu.appendChild(entryButton);
+			// 11/3/2022 11:06 AM MST : moved to Main.generateMenuItem()
 		}
 		
 		function initMenu() { // 3651, todo : not hard-code this
-			for (var i=0; i < 3651; i++) {
-				generateMenuItem(i);
-			}
+			// 11/2/2022 7:00 PM MST : moved to Main.initMenu()
 		}
 		
 		// used for callback
@@ -79,18 +48,7 @@
 		
 		// callback function triggered when .tab , .bin, and manifest are loaded
 		function onFileLoaded() {
-			filesLoaded++;
-			if (filesLoaded < filesTotal) {
-				return;
-			}
-			// this code generates a fresh manifest
-			//parseTab();
-			// this code reads entire .bin and lists/extracts ALL textures
-			//startloop();
-			//createManifest("TEX0","Dinosaur Planet : 2001 developer test build[?] - UI and Particle");
-			initMenu();
-			currTex = 713;
-			displayTextureInfo(currTex);
+			// 11/2/2022 ??? MST : moved to Main.onFileLoaded()
 		}
 		
 		// 10/25/2022 3:52 PM MST : hacked-in, refactor pending
@@ -118,7 +76,7 @@
 				//	ROM.tex.position = 0;
 					var arr = createByteArray(new Uint8Array(this.result));
 					ROM.bin.loadData(arr);
-					onFileLoaded();
+					$export.onFileLoaded(); // 11/2/2022 7:20 PM MST : hacked to use Main.onFileLoaded()
 				}
 				fr_tab.onload = function() {
 				//	var data = new DataStream(this.result,0,false);
@@ -126,11 +84,11 @@
 				//	ROM.tab.position = 0;
 					var arr = createByteArray(new Uint8Array(this.result));
 					ROM.bin.loadOffsets(arr);
-					onFileLoaded();
+					$export.onFileLoaded();
 				}
 				fr_mf.onload = function() {
 					ROM["manifest"] = JSON.parse(this.result);
-					onFileLoaded();
+					$export.onFileLoaded();
 				}
 				fr_tex.readAsArrayBuffer(file_texbin);
 				fr_tab.readAsArrayBuffer(file_textab);
@@ -153,61 +111,7 @@
 		}
 		
 		function displayTextureInfo(num) {
-			if (num > 3651 || num < 0) {
-				num = 0;
-			}
-			var tInfo = ROM.manifest.textures[num];
-			name_txt.value = tInfo.name;
-			tags_txt.value = tInfo.tags.join(",");
-			path_txt.value = tInfo.path;
-			
-			ctx.fillStyle = "#000000";
-			ctx.fillRect(0,0,scrn.width,scrn.height);
-			// var t = getTabEntry(num);
-			var t = ROM.bin.getItem(num);
-			if (t.resCount > 1) {
-				console.log(t);
-				/*(var e = new Error();
-				var e2 = {
-					cause : "Array textures are broken... D:",
-					position : "RottingCarcass : 159",
-					message : ["ugh...","gotta fix that next!"]
-				}
-				logError(e2);
-				//return;*/
-				
-				// console.log(num,JSON.stringify(t));
-				var posX = 0;
-				var posY = 0;
-				for (var i=0; i < t.resCount; i++) {
-					var t2 = t.resources[i];
-					// var tx = parseTexture(t2.ofs,t2.size,i,num);
-					// ROM.tex.position = t2.ofs;
-					ROM.bin.data.position = t2.ofs;
-					var arr = createByteArray(ROM.bin.data.readUint8Array(t2.size));
-					var ovr = getOVR(num);
-					
-					var tx = parseTexture(arr,t2.size,ovr);
-					if (tx.format > -1) {
-						window.drawTexture(posX,posY,tx,ovr.forceOpacity);
-						posY += tx.height + 8;
-						if (posY >= scrn.height - (tx.height + 8)) {
-							posY = 0;
-							posX += tx.width + 8;
-						}
-					}
-				}
-			} else {
-				// ROM.tex.position = t.resources[0].ofs;
-				ROM.bin.data.position = t.resources[0].ofs;
-				var arr = createByteArray(ROM.bin.data.readUint8Array(t.resources[0].size));
-				var ovr = getOVR(num);
-				var tx = parseTexture(arr,t.resources[0].size,ovr);
-				//console.log(dumpTextureInfo(t.ofs,t.size,0,num));
-				if (tx.format > -1) {
-					window.drawTexture(0,0,tx,ovr.forceOpacity);
-				}
-			}
+			// 11/3/2022 12:59 PM MST : moved to Main.displayTextureInfo()
 		}
 		
 		// 10/20/2022 12:09 PM MST : hacked-in, refactor pending
@@ -235,22 +139,9 @@
 		
 		// both dedicated UI functions here!
 		function advanceTexture() {
-			var tName = name_txt.value;
-			var tTags = tags_txt.value;
-			var tPath = path_txt.value;
-			updateEntry(currTex,tName,tTags,tPath);
-			currTex += 1;
-			displayTextureInfo(currTex);
+			// 11/3/2022 12:20 PM MST : moved to Main.advanceTexture() , Main.rewindTexture()
 		}
-		
-		function rewindTexture() {
-			var tName = name_txt.value;
-			var tTags = tags_txt.value;
-			var tPath = path_txt.value;
-			updateEntry(currTex,tName,tTags,tPath);
-			currTex -= 1;
-			displayTextureInfo(currTex);
-		}
+		function rewindTexture() {}
 		
 		// make this look like the game's crash screen, cuz i can, and it looks cool!
 		function logError(err) {
@@ -287,6 +178,18 @@
 	function hexa(n) {
 		// 9/9/2022 3:45 PM MST : moved to Main.hexa
 	}
+	
+	// 11/2/2022 7:20 PM MST : hacked-in
+	// update internal variable via haxe
+	function setCurrTex(num) {
+		currTex = num;
+	}
+	
+	// 11/3/2022 11:06 AM MST : hacked-in
+	// read internal variable via haxe
+	function getCurrTex() {
+		return currTex;
+	}
 
 function updateEntry(num,name,tags,path) {
 		ROM.manifest.textures[num].name = name;
@@ -298,17 +201,21 @@ function updateEntry(num,name,tags,path) {
 	}
 		
 		//$export.saveData = saveData;
-		$export.generateMenuItem = generateMenuItem;
-		$export.initMenu = initMenu;
+		//$export.generateMenuItem = generateMenuItem;
+		// $export.initMenu = initMenu;
 		$export.loadFile = loadFile;
 		//$export.getTabEntry = getTabEntry;
 		$export.importManifest = importManifest;
 		$export.exportManifest = exportManifest;
-		$export.displayTextureInfo = displayTextureInfo;
+		// $export.displayTextureInfo = displayTextureInfo;
 		$export.logError = logError;
 		$export.ROM = ROM;
-		$export.rewindTexture = rewindTexture;
-		$export.advanceTexture = advanceTexture;
+		//$export.rewindTexture = rewindTexture;
+		//$export.advanceTexture = advanceTexture;
 		$export.ctx = ctx;
 		$export.scrn = scrn;
+		$export.setCurrTex = setCurrTex;
+		$export.updateEntry = updateEntry;
+		$export.getCurrTex = getCurrTex;
+		$export.getOVR = getOVR;
 })(this);

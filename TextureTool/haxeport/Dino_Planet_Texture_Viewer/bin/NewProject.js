@@ -1,10 +1,50 @@
 (function ($global) { "use strict";
 var Main = function() { };
 Main.main = function() {
+	Main.ROM = new framework_EditorState();
 	window.parseTexture = framework_codec_Texture.decodeTexture;
 	window.createByteArray = function(src) {var buf = haxe_io_Bytes.alloc(src.length);var arr = new framework_ByteThingyWhatToNameIt(buf,false);arr.writeUint8Array(src);arr.position = 0;return arr;}
 	window.drawTexture = Main.drawTexture;
 	window.ROM.bin = new framework_codec_BinPack();
+	window.onFileLoaded = Main.onFileLoaded;
+	window.advanceTexture = Main.advanceTexture;
+	window.rewindTexture = Main.rewindTexture;
+	window.displayTextureInfo = Main.displayTextureInfo;
+};
+Main.initMenu = function() {
+	var _g = 0;
+	while(_g < 3651) {
+		var i = _g++;
+		Main.generateMenuItem(i);
+	}
+};
+Main.onFileLoaded = function() {
+	Main.filesLoaded++;
+	if(Main.filesLoaded < Main.filesTotal) {
+		return;
+	}
+	Main.initMenu();
+	var currTex = 713;
+	window.setCurrTex(currTex);
+	Main.displayTextureInfo(currTex);
+};
+Main.generateMenuItem = function(ord) {
+	var entryButton = window.document.createElement("div");
+	entryButton.setAttribute("class","navEntry");
+	entryButton.onclick = function() {var tName = Main.name_txt.value; var tTags = Main.tags_txt.value;var tPath = Main.path_txt.value;window.updateEntry(window.getCurrTex(),tName,tTags,tPath);window.setCurrTex(ord);window.displayTextureInfo(ord);}
+	var entryIcon = new Image();
+	entryIcon.width = 32;
+	entryIcon.height = 32;
+	entryIcon.src = "default_icon.png";
+	entryIcon.setAttribute("class","texPreview");
+	var entryName = window.document.createElement("h3");
+	var tInfo = window.ROM.manifest.textures[ord];
+	entryName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + tInfo.name;
+	entryButton.appendChild(entryIcon);
+	entryName.setAttribute("class","texName");
+	entryName.setAttribute("id","texName_" + ord);
+	entryButton.appendChild(entryName);
+	Main.menu.appendChild(entryButton);
 };
 Main.drawTexture = function(x,y,texture,forceOpacity) {
 	var turtle = new ImageData(texture.width,texture.height);
@@ -116,6 +156,64 @@ Main.drawPallete = function(p) {
 		ctx.fillStyle = col;
 		ctx.fillRect(posX,posY,16,16);
 		posX += 16;
+	}
+};
+Main.advanceTexture = function() {
+	var tName = Main.name_txt.value;
+	var tTags = Main.tags_txt.value;
+	var tPath = Main.path_txt.value;
+	window.updateEntry(window.getCurrTex(),tName,tTags,tPath);
+	window.setCurrTex(window.getCurrTex() + 1);
+	Main.displayTextureInfo(window.getCurrTex());
+};
+Main.rewindTexture = function() {
+	var tName = Main.name_txt.value;
+	var tTags = Main.tags_txt.value;
+	var tPath = Main.path_txt.value;
+	window.updateEntry(window.getCurrTex(),tName,tTags,tPath);
+	window.setCurrTex(window.getCurrTex() - 1);
+	Main.displayTextureInfo(window.getCurrTex());
+};
+Main.displayTextureInfo = function(num) {
+	if(num > 3651 || num < 0) {
+		num = 0;
+	}
+	var tInfo = window.ROM.manifest.textures[num];
+	Main.name_txt.value = tInfo.name;
+	Main.tags_txt.value = tInfo.tags.join(",");
+	Main.path_txt.value = tInfo.path;
+	ctx.fillStyle = "#000000";
+	ctx.fillRect(0,0,scrn.width,scrn.height);
+	var t = window.ROM.bin.getItem(num);
+	if(t.resCount > 1) {
+		var posX = 0;
+		var posY = 0;
+		var _g = 0;
+		var _g1 = t.resCount;
+		while(_g < _g1) {
+			var i = _g++;
+			var t2 = t.resources[i];
+			window.ROM.bin.data.position = t2.ofs;
+			var arr = window.createByteArray(window.ROM.bin.data.readUint8Array(t2.size));
+			var ovr = window.getOVR(num);
+			var tx = framework_codec_Texture.decodeTexture(arr,t2.size,ovr);
+			if(tx.format > -1) {
+				Main.drawTexture(posX,posY,tx,ovr.forceOpacity);
+				posY += tx.height + 8;
+				if(posY >= scrn.height - (tx.height + 8)) {
+					posY = 0;
+					posX += tx.width + 8;
+				}
+			}
+		}
+	} else {
+		ROM.bin.data.position = t.resources[0].ofs;
+		var arr = window.createByteArray(window.ROM.bin.data.readUint8Array(t.resources[0].size));
+		var ovr = window.getOVR(num);
+		var tx = framework_codec_Texture.decodeTexture(arr,t.resources[0].size,ovr);
+		if(tx.format > -1) {
+			Main.drawTexture(0,0,tx,ovr.forceOpacity);
+		}
 	}
 };
 var StringTools = function() { };
@@ -250,6 +348,9 @@ framework_ByteThingyWhatToNameIt.prototype = {
 		return compressed;
 	}
 };
+var framework_EditorState = function() {
+};
+var framework_ManifestDB = function() { };
 var framework_codec_BinPack = function() {
 };
 framework_codec_BinPack.prototype = {
@@ -930,6 +1031,12 @@ haxe_iterators_ArrayIterator.prototype = {
 		return this.array[this.current++];
 	}
 };
+Main.filesTotal = 3;
+Main.filesLoaded = 0;
+Main.menu = window.document.getElementById("navbar");
+Main.name_txt = window.document.getElementById("name-txt");
+Main.tags_txt = window.document.getElementById("tags-txt");
+Main.path_txt = window.document.getElementById("path-txt");
 framework_codec_Texture.CLUT4BIT = [0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255];
 Main.main();
 })({});

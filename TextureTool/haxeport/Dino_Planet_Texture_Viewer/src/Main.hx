@@ -1,6 +1,9 @@
 package;
+import framework.EditorState;
 import haxe.io.Bytes;
 import framework.codec.Texture;
+import js.html.Element;
+import js.html.InputElement;
 // import haxe.crypto.Md5;
 // import framework.codec.Qoi;
 import haxe.io.UInt8Array;
@@ -10,18 +13,92 @@ import js.Syntax;
 import js.html.ImageData;
 import framework.ByteThingyWhatToNameIt;
 import framework.codec.BinPack;
+import js.Browser.document;
+import js.html.Image;
 
 class Main 
 {
+	static public var filesTotal = 3;
+	static public var filesLoaded = 0;
+	static public var menu:Element = document.getElementById("navbar");
+	static public var name_txt:InputElement = cast document.getElementById("name-txt");
+	static public var tags_txt:InputElement = cast document.getElementById("tags-txt");
+	static public var path_txt:InputElement = cast document.getElementById("path-txt");
+	static public var ROM:EditorState;
 	
-	static function main() 
-	{
+	static function main() {
 		// ugly hax enable old "Main()" code to be used, for now...
+		ROM = new EditorState(); // can't use this yet...
 		Syntax.code("window.parseTexture = {0}",Texture.decodeTexture);
 		Syntax.code("window.createByteArray = function(src) {var buf = {0}(src.length);var arr = new {1}(buf,false);arr.writeUint8Array(src);arr.position = 0;return arr;}", Bytes.alloc, ByteThingyWhatToNameIt);
 		Syntax.code("window.drawTexture = {0}", drawTexture);
 		Syntax.code("window.ROM.bin = new {0}()", BinPack);
+		Syntax.code("window.onFileLoaded = {0}", onFileLoaded);
+		Syntax.code("window.advanceTexture = {0}", advanceTexture);
+		Syntax.code("window.rewindTexture = {0}", rewindTexture);
+		Syntax.code("window.displayTextureInfo = {0}", displayTextureInfo);
 	}
+	
+	static function initMenu() {
+		// todo : not hard-code this
+		for (i in 0...3651) {
+			generateMenuItem(i);
+		}
+	}
+	
+	static public function onFileLoaded() {
+		filesLoaded++;
+		if (filesLoaded < filesTotal) {
+			return;
+		}
+		// TODO : cleanup
+		// this code generates a fresh manifest
+		//parseTab();
+		// this code reads entire .bin and lists/extracts ALL textures
+		//startloop();
+		//createManifest("TEX0","Dinosaur Planet : 2001 developer test build[?] - UI and Particle");
+		initMenu();
+		var currTex:Int = 713;
+		Syntax.code("window.setCurrTex({0})", currTex);
+		displayTextureInfo(currTex);
+	}
+	
+	// how ? 
+	// TODO!
+	/*static public function onBtnClick() {
+		var tName = name_txt.value;
+		var tTags = tags_txt.value;
+		var tPath = path_txt.value;
+		updateEntry(currTex,tName,tTags,tPath);
+		currTex = ord;
+		displayTextureInfo(ord);
+	}*/
+	
+	static function generateMenuItem(ord:Int) {
+			/*
+			<div class="navEntry" onclick="alert('hi there')">
+					<img width="32" height="32" class="texPreview" src="default_icon.png"/><h3 class="texName">&nbsp;&nbsp;&nbsp;&nbsp;a texture</h3>
+				</div>
+			*/
+			//console.log(ord);
+			var entryButton = document.createElement("div");
+			entryButton.setAttribute("class","navEntry");
+			entryButton.onclick = Syntax.code("function() {var tName = {0}.value; var tTags = {1}.value;var tPath = {2}.value;window.updateEntry(window.getCurrTex(),tName,tTags,tPath);window.setCurrTex(ord);window.displayTextureInfo(ord);}",name_txt,tags_txt,path_txt);
+			var entryIcon = new Image();
+			entryIcon.width = 32;
+			entryIcon.height = 32;
+			entryIcon.src = "default_icon.png";
+			entryIcon.setAttribute("class","texPreview");
+			var entryName = document.createElement("h3");
+			var tInfo = Syntax.code("window.ROM.manifest.textures[ord]");
+			//console.log(tInfo);
+			entryName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + tInfo.name;
+			entryButton.appendChild(entryIcon);
+			entryName.setAttribute("class","texName");
+			entryName.setAttribute("id","texName_" + ord);
+			entryButton.appendChild(entryName);
+			menu.appendChild(entryButton);
+		}
 	
 	static function drawTexture(x:Int,y:Int,texture:TDinoPlanetTexture,forceOpacity:Bool) : Void {
 		var turtle:ImageData = new ImageData(texture.width,texture.height);
@@ -129,6 +206,70 @@ class Main
 			Syntax.code("ctx.fillStyle = col");
 			Syntax.code("ctx.fillRect(posX,posY,16,16)");
 			posX += 16;
+		}
+	}
+	
+	// both dedicated UI functions here!
+	public static function advanceTexture() {
+		var tName:String = name_txt.value;
+		var tTags:String = tags_txt.value;
+		var tPath:String = path_txt.value;
+		Syntax.code("window.updateEntry(window.getCurrTex(),tName,tTags,tPath)");
+		Syntax.code("window.setCurrTex(window.getCurrTex() + 1)");
+		displayTextureInfo(Syntax.code("window.getCurrTex()"));
+	}
+		
+	public static function rewindTexture() {
+		var tName:String = name_txt.value;
+		var tTags:String = tags_txt.value;
+		var tPath:String = path_txt.value;
+		Syntax.code("window.updateEntry(window.getCurrTex(),tName,tTags,tPath)");
+		Syntax.code("window.setCurrTex(window.getCurrTex() - 1)");
+		displayTextureInfo(Syntax.code("window.getCurrTex()"));
+	}
+	
+	static function displayTextureInfo(num) {
+		if (num > 3651 || num < 0) { // still bad
+			num = 0;
+		}
+		
+		var tInfo:Dynamic = Syntax.code("window.ROM.manifest.textures[num]");
+		name_txt.value = tInfo.name;
+		tags_txt.value = tInfo.tags.join(",");
+		path_txt.value = tInfo.path;
+		
+		Syntax.code("ctx.fillStyle = \"#000000\"");
+		Syntax.code("ctx.fillRect(0,0,scrn.width,scrn.height)");
+		
+		var t = Syntax.code("window.ROM.bin.getItem(num)");
+		if (t.resCount > 1) {
+			var posX = 0;
+			var posY = 0;
+			for (i in 0...t.resCount) {
+				var t2 = t.resources[i];
+				Syntax.code("window.ROM.bin.data.position = t2.ofs");
+				var arr:ByteThingyWhatToNameIt = Syntax.code("window.createByteArray(window.ROM.bin.data.readUint8Array(t2.size))");
+				var ovr:TTextureFormatOverride = Syntax.code("window.getOVR(num)");
+				
+				var tx = Texture.decodeTexture(arr,t2.size,ovr);
+				if (tx.format > -1) {
+					drawTexture(posX,posY,tx,ovr.forceOpacity);
+					posY += tx.height + 8;
+					if (posY >= Syntax.code("scrn.height") - (tx.height + 8)) {
+						posY = 0;
+						posX += tx.width + 8;
+					}
+				}
+			}
+		} else {
+			Syntax.code("ROM.bin.data.position = t.resources[0].ofs");
+			var arr:ByteThingyWhatToNameIt = Syntax.code("window.createByteArray(window.ROM.bin.data.readUint8Array(t.resources[0].size))");
+			var ovr:TTextureFormatOverride = Syntax.code("window.getOVR(num)");
+			var tx = Texture.decodeTexture(arr,t.resources[0].size,ovr);
+			//console.log(dumpTextureInfo(t.ofs,t.size,0,num));
+			if (tx.format > -1) {
+				drawTexture(0,0,tx,ovr.forceOpacity);
+			}
 		}
 	}
 }
