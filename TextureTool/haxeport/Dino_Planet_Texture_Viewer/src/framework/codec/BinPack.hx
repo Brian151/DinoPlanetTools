@@ -22,9 +22,8 @@ typedef BinPackResource = {
 class BinPack 
 {
 	// is there a valid reason Rare made bin/tab separate files?
-	var data : ByteThingyWhatToNameIt;
-	var offsetTable : ByteThingyWhatToNameIt;
-	
+	public var data : ByteThingyWhatToNameIt;
+	public var offsetTable : ByteThingyWhatToNameIt;
 	
 	public function new() {
 		

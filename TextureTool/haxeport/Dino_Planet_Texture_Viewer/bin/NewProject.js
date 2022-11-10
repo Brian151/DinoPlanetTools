@@ -1,15 +1,198 @@
 (function ($global) { "use strict";
+var Graphics = function(cnv) {
+	this.scrn = cnv;
+	this.scrn.width = 800;
+	this.scrn.height = 608;
+	this.ctx = this.scrn.getContext("2d");
+};
+Graphics.prototype = {
+	drawTexture: function(x,y,texture,forceOpacity) {
+		this.ctx.fillStyle = "#000000";
+		this.ctx.fillRect(0,0,this.scrn.width,this.scrn.height);
+		var turtle = new ImageData(texture.width,texture.height);
+		var size = texture.width * texture.height;
+		var pal = texture.palette;
+		var f = texture.format;
+		if(f == 23 || f == 7) {
+			if(forceOpacity) {
+				var _g = 0;
+				var _g1 = size;
+				while(_g < _g1) {
+					var i = _g++;
+					var base = i * 4;
+					var basePal = texture.pixels[i] * 4;
+					turtle.data[base] = texture.palette[basePal];
+					turtle.data[base + 1] = texture.palette[basePal + 1];
+					turtle.data[base + 2] = texture.palette[basePal + 2];
+					turtle.data[base + 3] = 255;
+				}
+			} else {
+				var _g = 0;
+				var _g1 = size;
+				while(_g < _g1) {
+					var i = _g++;
+					var base = i * 4;
+					var basePal = texture.pixels[i] * 4;
+					turtle.data[base] = texture.palette[basePal];
+					turtle.data[base + 1] = texture.palette[basePal + 1];
+					turtle.data[base + 2] = texture.palette[basePal + 2];
+					turtle.data[base + 3] = texture.palette[basePal + 3];
+				}
+			}
+			this.drawPallete(texture.palette);
+		} else if(f == 1 || f == 0 || f == 17 || f == 2 || f == 5 || f == 6 || f == 4 || f == 3) {
+			if(forceOpacity) {
+				var _g = 0;
+				var _g1 = size;
+				while(_g < _g1) {
+					var i = _g++;
+					var base = i * 4;
+					turtle.data[base] = texture.pixels[base];
+					turtle.data[base + 1] = texture.pixels[base + 1];
+					turtle.data[base + 2] = texture.pixels[base + 2];
+					turtle.data[base + 3] = 255;
+				}
+			} else {
+				var _g = 0;
+				var _g1 = size;
+				while(_g < _g1) {
+					var i = _g++;
+					var base = i * 4;
+					turtle.data[base] = texture.pixels[base];
+					turtle.data[base + 1] = texture.pixels[base + 1];
+					turtle.data[base + 2] = texture.pixels[base + 2];
+					turtle.data[base + 3] = texture.pixels[base + 3];
+				}
+			}
+		}
+		this.drawImageData(turtle,x,y,1);
+	}
+	,drawImageData: function(iDat,x,y,scale) {
+		var posX = x;
+		var posY = y;
+		var posP = 0;
+		var arrP = iDat.data;
+		var _g = 0;
+		var _g1 = iDat.height;
+		while(_g < _g1) {
+			var iY = _g++;
+			var _g2 = 0;
+			var _g3 = iDat.width;
+			while(_g2 < _g3) {
+				var iX = _g2++;
+				var base = posP * 4;
+				var r = Main.hexa(arrP[base]);
+				var g = Main.hexa(arrP[base + 1]);
+				var b = Main.hexa(arrP[base + 2]);
+				var a = Main.hexa(arrP[base + 3]);
+				this.ctx.fillStyle = "#" + r + g + b + a;
+				this.ctx.fillRect(posX,posY,scale,scale);
+				posX += scale;
+				++posP;
+			}
+			posY += scale;
+			posX = x;
+		}
+	}
+	,drawPallete: function(p) {
+		var w = this.scrn.width;
+		var h = this.scrn.height;
+		var baseX = w - 64;
+		var posX = baseX;
+		var posY = 0;
+		var _g = 0;
+		while(_g < 16) {
+			var i = _g++;
+			if(i > 0 && i % 4 == 0) {
+				posX = baseX;
+				posY += 16;
+			}
+			var base = i * 4;
+			var r = p[base];
+			var g = p[base + 1];
+			var b = p[base + 2];
+			var col = "rgba(" + [Math.floor(r),Math.floor(g),Math.floor(b)].join(", ") + ", 1)";
+			this.ctx.fillStyle = col;
+			this.ctx.fillRect(posX,posY,16,16);
+			posX += 16;
+		}
+	}
+};
 var Main = function() { };
 Main.main = function() {
 	Main.ROM = new framework_EditorState();
-	window.parseTexture = framework_codec_Texture.decodeTexture;
+	Main.ROM.bin = new framework_codec_BinPack();
+	Main.gfx = new Graphics(window.document.getElementById("screen"));
 	window.createByteArray = function(src) {var buf = haxe_io_Bytes.alloc(src.length);var arr = new framework_ByteThingyWhatToNameIt(buf,false);arr.writeUint8Array(src);arr.position = 0;return arr;}
-	window.drawTexture = Main.drawTexture;
-	window.ROM.bin = new framework_codec_BinPack();
-	window.onFileLoaded = Main.onFileLoaded;
+	window.ROM = Main.ROM;
 	window.advanceTexture = Main.advanceTexture;
 	window.rewindTexture = Main.rewindTexture;
 	window.displayTextureInfo = Main.displayTextureInfo;
+	window.loadFile = Main.loadFile;
+};
+Main.onFileLoaded = function() {
+	Main.filesLoaded++;
+	if(Main.filesLoaded < Main.filesTotal) {
+		return;
+	}
+	Main.initMenu();
+	Main.ROM.currTex = 713;
+	Main.displayTextureInfo(Main.ROM.currTex);
+};
+Main.loadFile = function() {
+	if(Main.filein.files.length > 0 && Main.filein2.files.length > 0 && Main.filein3.files.length > 0) {
+		var file_texbin = Main.filein.files[0];
+		var file_textab = Main.filein2.files[0];
+		var file_texmf = Main.filein3.files[0];
+		var fr_tex = new FileReader();
+		var fr_tab = new FileReader();
+		var fr_mf = new FileReader();
+		if(file_texbin.name == "TEX0.bin") {
+			Main.isTex0 = true;
+		} else {
+			Main.isTex0 = false;
+		}
+		fr_tex.onload = function() {
+			var arr = Main.createByteArray(fr_tex.result,false);
+			Main.ROM.bin.loadData(arr);
+			Main.onFileLoaded();
+		};
+		fr_tab.onload = function() {
+			var arr = Main.createByteArray(fr_tab.result,false);
+			Main.ROM.bin.loadOffsets(arr);
+			Main.onFileLoaded();
+		};
+		fr_mf.onload = function() {
+			Main.ROM.manifest = JSON.parse(fr_mf.result);
+			Main.onFileLoaded();
+		};
+		fr_tex.readAsArrayBuffer(file_texbin);
+		fr_tab.readAsArrayBuffer(file_textab);
+		fr_mf.readAsText(file_texmf);
+	}
+};
+Main.getOVR = function(id) {
+	if(!Main.isTex0) {
+		return { width : 0, height : 0, format : -1, noSwizzle : false, forceOpacity : false, id : id};
+	}
+	var ovr = window.TEXOVR;
+	var _g = 0;
+	var _g1 = ovr.overrides.length;
+	while(_g < _g1) {
+		var i = _g++;
+		var curr = ovr.overrides[i];
+		if(curr.id == id) {
+			return curr;
+		}
+	}
+	return { width : 0, height : 0, format : -1, noSwizzle : false, forceOpacity : false, id : id};
+};
+Main.updateEntry = function(num,name,tags,path) {
+	Main.ROM.manifest.textures[num].name = name;
+	Main.ROM.manifest.textures[num].tags = tags.split(",");
+	Main.ROM.manifest.textures[num].path = path;
+	var menuName = window.document.getElementById("texName_" + num);
+	menuName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + Main.name_txt.value;
 };
 Main.initMenu = function() {
 	var _g = 0;
@@ -18,27 +201,17 @@ Main.initMenu = function() {
 		Main.generateMenuItem(i);
 	}
 };
-Main.onFileLoaded = function() {
-	Main.filesLoaded++;
-	if(Main.filesLoaded < Main.filesTotal) {
-		return;
-	}
-	Main.initMenu();
-	var currTex = 713;
-	window.setCurrTex(currTex);
-	Main.displayTextureInfo(currTex);
-};
 Main.generateMenuItem = function(ord) {
 	var entryButton = window.document.createElement("div");
 	entryButton.setAttribute("class","navEntry");
-	entryButton.onclick = function() {var tName = Main.name_txt.value; var tTags = Main.tags_txt.value;var tPath = Main.path_txt.value;window.updateEntry(window.getCurrTex(),tName,tTags,tPath);window.setCurrTex(ord);window.displayTextureInfo(ord);}
+	entryButton.onclick = function() {var tName = Main.name_txt.value; var tTags = Main.tags_txt.value;var tPath = Main.path_txt.value;Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);Main.ROM.currTex= ord;window.displayTextureInfo(ord);}
 	var entryIcon = new Image();
 	entryIcon.width = 32;
 	entryIcon.height = 32;
 	entryIcon.src = "default_icon.png";
 	entryIcon.setAttribute("class","texPreview");
 	var entryName = window.document.createElement("h3");
-	var tInfo = window.ROM.manifest.textures[ord];
+	var tInfo = Main.ROM.manifest.textures[ord];
 	entryName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + tInfo.name;
 	entryButton.appendChild(entryIcon);
 	entryName.setAttribute("class","texName");
@@ -46,145 +219,31 @@ Main.generateMenuItem = function(ord) {
 	entryButton.appendChild(entryName);
 	Main.menu.appendChild(entryButton);
 };
-Main.drawTexture = function(x,y,texture,forceOpacity) {
-	var turtle = new ImageData(texture.width,texture.height);
-	var size = texture.width * texture.height;
-	var pal = texture.palette;
-	var f = texture.format;
-	if(f == 23 || f == 7) {
-		if(forceOpacity) {
-			var _g = 0;
-			var _g1 = size;
-			while(_g < _g1) {
-				var i = _g++;
-				var base = i * 4;
-				var basePal = texture.pixels[i] * 4;
-				turtle.data[base] = texture.palette[basePal];
-				turtle.data[base + 1] = texture.palette[basePal + 1];
-				turtle.data[base + 2] = texture.palette[basePal + 2];
-				turtle.data[base + 3] = 255;
-			}
-		} else {
-			var _g = 0;
-			var _g1 = size;
-			while(_g < _g1) {
-				var i = _g++;
-				var base = i * 4;
-				var basePal = texture.pixels[i] * 4;
-				turtle.data[base] = texture.palette[basePal];
-				turtle.data[base + 1] = texture.palette[basePal + 1];
-				turtle.data[base + 2] = texture.palette[basePal + 2];
-				turtle.data[base + 3] = texture.palette[basePal + 3];
-			}
-		}
-		Main.drawPallete(texture.palette);
-	} else if(f == 1 || f == 0 || f == 17 || f == 2 || f == 5 || f == 6 || f == 4 || f == 3) {
-		if(forceOpacity) {
-			var _g = 0;
-			var _g1 = size;
-			while(_g < _g1) {
-				var i = _g++;
-				var base = i * 4;
-				turtle.data[base] = texture.pixels[base];
-				turtle.data[base + 1] = texture.pixels[base + 1];
-				turtle.data[base + 2] = texture.pixels[base + 2];
-				turtle.data[base + 3] = 255;
-			}
-		} else {
-			var _g = 0;
-			var _g1 = size;
-			while(_g < _g1) {
-				var i = _g++;
-				var base = i * 4;
-				turtle.data[base] = texture.pixels[base];
-				turtle.data[base + 1] = texture.pixels[base + 1];
-				turtle.data[base + 2] = texture.pixels[base + 2];
-				turtle.data[base + 3] = texture.pixels[base + 3];
-			}
-		}
-	}
-	Main.drawImageData(turtle,x,y,1);
-};
-Main.drawImageData = function(iDat,x,y,scale) {
-	var posX = x;
-	var posY = y;
-	var posP = 0;
-	var arrP = iDat.data;
-	var _g = 0;
-	var _g1 = iDat.height;
-	while(_g < _g1) {
-		var iY = _g++;
-		var _g2 = 0;
-		var _g3 = iDat.width;
-		while(_g2 < _g3) {
-			var iX = _g2++;
-			var base = posP * 4;
-			var r = Main.hexa(arrP[base]);
-			var g = Main.hexa(arrP[base + 1]);
-			var b = Main.hexa(arrP[base + 2]);
-			var a = Main.hexa(arrP[base + 3]);
-			ctx.fillStyle = "#" + r + g + b + a;
-			ctx.fillRect(posX,posY,scale,scale);
-			posX += scale;
-			++posP;
-		}
-		posY += scale;
-		posX = x;
-	}
-};
-Main.hexa = function(n) {
-	return StringTools.hex(n,2);
-};
-Main.drawPallete = function(p) {
-	var w = scrn.width;
-	var h = scrn.height;
-	var baseX = w - 64;
-	var posX = baseX;
-	var posY = 0;
-	var _g = 0;
-	while(_g < 16) {
-		var i = _g++;
-		if(i > 0 && i % 4 == 0) {
-			posX = baseX;
-			posY += 16;
-		}
-		var base = i * 4;
-		var r = p[base];
-		var g = p[base + 1];
-		var b = p[base + 2];
-		var col = "rgba(" + [Math.floor(r),Math.floor(g),Math.floor(b)].join(", ") + ", 1)";
-		ctx.fillStyle = col;
-		ctx.fillRect(posX,posY,16,16);
-		posX += 16;
-	}
-};
 Main.advanceTexture = function() {
 	var tName = Main.name_txt.value;
 	var tTags = Main.tags_txt.value;
 	var tPath = Main.path_txt.value;
-	window.updateEntry(window.getCurrTex(),tName,tTags,tPath);
-	window.setCurrTex(window.getCurrTex() + 1);
-	Main.displayTextureInfo(window.getCurrTex());
+	Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);
+	Main.ROM.currTex += 1;
+	Main.displayTextureInfo(Main.ROM.currTex);
 };
 Main.rewindTexture = function() {
 	var tName = Main.name_txt.value;
 	var tTags = Main.tags_txt.value;
 	var tPath = Main.path_txt.value;
-	window.updateEntry(window.getCurrTex(),tName,tTags,tPath);
-	window.setCurrTex(window.getCurrTex() - 1);
-	Main.displayTextureInfo(window.getCurrTex());
+	Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);
+	Main.ROM.currTex -= 1;
+	Main.displayTextureInfo(Main.ROM.currTex);
 };
 Main.displayTextureInfo = function(num) {
 	if(num > 3651 || num < 0) {
 		num = 0;
 	}
-	var tInfo = window.ROM.manifest.textures[num];
+	var tInfo = Main.ROM.manifest.textures[num];
 	Main.name_txt.value = tInfo.name;
 	Main.tags_txt.value = tInfo.tags.join(",");
 	Main.path_txt.value = tInfo.path;
-	ctx.fillStyle = "#000000";
-	ctx.fillRect(0,0,scrn.width,scrn.height);
-	var t = window.ROM.bin.getItem(num);
+	var t = Main.ROM.bin.getItem(num);
 	if(t.resCount > 1) {
 		var posX = 0;
 		var posY = 0;
@@ -193,28 +252,36 @@ Main.displayTextureInfo = function(num) {
 		while(_g < _g1) {
 			var i = _g++;
 			var t2 = t.resources[i];
-			window.ROM.bin.data.position = t2.ofs;
+			Main.ROM.bin.data.position = t2.ofs;
 			var arr = window.createByteArray(window.ROM.bin.data.readUint8Array(t2.size));
-			var ovr = window.getOVR(num);
+			var ovr = Main.getOVR(num);
 			var tx = framework_codec_Texture.decodeTexture(arr,t2.size,ovr);
 			if(tx.format > -1) {
-				Main.drawTexture(posX,posY,tx,ovr.forceOpacity);
+				Main.gfx.drawTexture(posX,posY,tx,ovr.forceOpacity);
 				posY += tx.height + 8;
-				if(posY >= scrn.height - (tx.height + 8)) {
+				if(posY >= 608 - (tx.height + 8)) {
 					posY = 0;
 					posX += tx.width + 8;
 				}
 			}
 		}
 	} else {
-		ROM.bin.data.position = t.resources[0].ofs;
+		Main.ROM.bin.data.position = t.resources[0].ofs;
 		var arr = window.createByteArray(window.ROM.bin.data.readUint8Array(t.resources[0].size));
-		var ovr = window.getOVR(num);
+		var ovr = Main.getOVR(num);
 		var tx = framework_codec_Texture.decodeTexture(arr,t.resources[0].size,ovr);
 		if(tx.format > -1) {
-			Main.drawTexture(0,0,tx,ovr.forceOpacity);
+			Main.gfx.drawTexture(0,0,tx,ovr.forceOpacity);
 		}
 	}
+};
+Main.createByteArray = function(src,end) {
+	var arr = new Uint8Array(src);
+	var bytearr = haxe_io_Bytes.ofData(arr.buffer);
+	return new framework_ByteThingyWhatToNameIt(bytearr,end);
+};
+Main.hexa = function(n) {
+	return StringTools.hex(n,2);
 };
 var StringTools = function() { };
 StringTools.hex = function(n,digits) {
@@ -349,6 +416,7 @@ framework_ByteThingyWhatToNameIt.prototype = {
 	}
 };
 var framework_EditorState = function() {
+	this.currTex = 0;
 };
 var framework_ManifestDB = function() { };
 var framework_codec_BinPack = function() {
@@ -1019,6 +1087,13 @@ var haxe_io_Bytes = function(data) {
 haxe_io_Bytes.alloc = function(length) {
 	return new haxe_io_Bytes(new ArrayBuffer(length));
 };
+haxe_io_Bytes.ofData = function(b) {
+	var hb = b.hxBytes;
+	if(hb != null) {
+		return hb;
+	}
+	return new haxe_io_Bytes(b);
+};
 var haxe_iterators_ArrayIterator = function(array) {
 	this.current = 0;
 	this.array = array;
@@ -1037,6 +1112,10 @@ Main.menu = window.document.getElementById("navbar");
 Main.name_txt = window.document.getElementById("name-txt");
 Main.tags_txt = window.document.getElementById("tags-txt");
 Main.path_txt = window.document.getElementById("path-txt");
+Main.filein = window.document.getElementById("thefile");
+Main.filein2 = window.document.getElementById("thefile2");
+Main.filein3 = window.document.getElementById("thefile3");
+Main.isTex0 = false;
 framework_codec_Texture.CLUT4BIT = [0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255];
 Main.main();
 })({});

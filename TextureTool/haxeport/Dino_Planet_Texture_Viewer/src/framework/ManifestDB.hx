@@ -53,7 +53,7 @@ typedef TDPManifestSourceFileReference = {
 	path : String
 }
 
-// TODO
+// NEEDS RE-WORK (make generic)!
 class ManifestDB 
 {
 	// Manifest DBs are JSON objects to make editing Binpacks easier
@@ -66,4 +66,8 @@ class ManifestDB
 	// when/if project files and/or workspaces are implemented, 
 	// manifestDBs will play an essential role
 	
+	public var texturePackName : String;
+	public var texturePackHash : String;
+	public var name : String;
+	public var textures : Array<TDPManifestTextureInfo>;
 }
