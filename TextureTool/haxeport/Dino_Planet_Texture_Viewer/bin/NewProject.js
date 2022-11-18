@@ -1,10 +1,18 @@
 (function ($global) { "use strict";
+var $estr = function() { return js_Boot.__string_rec(this,''); },$hxEnums = $hxEnums || {},$_;
+function $extend(from, fields) {
+	var proto = Object.create(from);
+	for (var name in fields) proto[name] = fields[name];
+	if( fields.toString !== Object.prototype.toString ) proto.toString = fields.toString;
+	return proto;
+}
 var Graphics = function(cnv) {
 	this.scrn = cnv;
 	this.scrn.width = 800;
 	this.scrn.height = 608;
 	this.ctx = this.scrn.getContext("2d");
 };
+Graphics.__name__ = true;
 Graphics.prototype = {
 	drawTexture: function(x,y,texture,forceOpacity) {
 		this.ctx.fillStyle = "#000000";
@@ -119,16 +127,18 @@ Graphics.prototype = {
 	}
 };
 var Main = function() { };
+Main.__name__ = true;
 Main.main = function() {
 	Main.ROM = new framework_EditorState();
 	Main.ROM.bin = new framework_codec_BinPack();
 	Main.gfx = new Graphics(window.document.getElementById("screen"));
-	window.createByteArray = function(src) {var buf = haxe_io_Bytes.alloc(src.length);var arr = new framework_ByteThingyWhatToNameIt(buf,false);arr.writeUint8Array(src);arr.position = 0;return arr;}
 	window.ROM = Main.ROM;
 	window.advanceTexture = Main.advanceTexture;
 	window.rewindTexture = Main.rewindTexture;
 	window.displayTextureInfo = Main.displayTextureInfo;
 	window.loadFile = Main.loadFile;
+	window.exportManifest = Main.exportManifest;
+	window.updateEntry = Main.updateCurrentEntry;
 };
 Main.onFileLoaded = function() {
 	Main.filesLoaded++;
@@ -147,11 +157,6 @@ Main.loadFile = function() {
 		var fr_tex = new FileReader();
 		var fr_tab = new FileReader();
 		var fr_mf = new FileReader();
-		if(file_texbin.name == "TEX0.bin") {
-			Main.isTex0 = true;
-		} else {
-			Main.isTex0 = false;
-		}
 		fr_tex.onload = function() {
 			var arr = Main.createByteArray(fr_tex.result,false);
 			Main.ROM.bin.loadData(arr);
@@ -171,32 +176,21 @@ Main.loadFile = function() {
 		fr_mf.readAsText(file_texmf);
 	}
 };
-Main.getOVR = function(id) {
-	if(!Main.isTex0) {
-		return { width : 0, height : 0, format : -1, noSwizzle : false, forceOpacity : false, id : id};
-	}
-	var ovr = window.TEXOVR;
-	var _g = 0;
-	var _g1 = ovr.overrides.length;
-	while(_g < _g1) {
-		var i = _g++;
-		var curr = ovr.overrides[i];
-		if(curr.id == id) {
-			return curr;
-		}
-	}
-	return { width : 0, height : 0, format : -1, noSwizzle : false, forceOpacity : false, id : id};
-};
 Main.updateEntry = function(num,name,tags,path) {
-	Main.ROM.manifest.textures[num].name = name;
-	Main.ROM.manifest.textures[num].tags = tags.split(",");
-	Main.ROM.manifest.textures[num].path = path;
+	Main.ROM.manifest.resources[num].name = name;
+	Main.ROM.manifest.resources[num].tags = tags.split(",");
+	Main.ROM.manifest.resources[num].path = path;
 	var menuName = window.document.getElementById("texName_" + num);
 	menuName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + Main.name_txt.value;
 };
+Main.exportManifest = function() {
+	var blob = new Blob([JSON.stringify(Main.ROM.manifest)],{ type : "text/plain;charset=utf-8"});
+	saveAs(blob, "manifest.json");
+};
 Main.initMenu = function() {
 	var _g = 0;
-	while(_g < 3651) {
+	var _g1 = Main.ROM.manifest.resources.length;
+	while(_g < _g1) {
 		var i = _g++;
 		Main.generateMenuItem(i);
 	}
@@ -211,7 +205,7 @@ Main.generateMenuItem = function(ord) {
 	entryIcon.src = "default_icon.png";
 	entryIcon.setAttribute("class","texPreview");
 	var entryName = window.document.createElement("h3");
-	var tInfo = Main.ROM.manifest.textures[ord];
+	var tInfo = Main.ROM.manifest.resources[ord];
 	entryName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + tInfo.name;
 	entryButton.appendChild(entryIcon);
 	entryName.setAttribute("class","texName");
@@ -235,11 +229,17 @@ Main.rewindTexture = function() {
 	Main.ROM.currTex -= 1;
 	Main.displayTextureInfo(Main.ROM.currTex);
 };
+Main.updateCurrentEntry = function() {
+	var tName = Main.name_txt.value;
+	var tTags = Main.tags_txt.value;
+	var tPath = Main.path_txt.value;
+	Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);
+};
 Main.displayTextureInfo = function(num) {
 	if(num > 3651 || num < 0) {
 		num = 0;
 	}
-	var tInfo = Main.ROM.manifest.textures[num];
+	var tInfo = Main.ROM.manifest.resources[num];
 	Main.name_txt.value = tInfo.name;
 	Main.tags_txt.value = tInfo.tags.join(",");
 	Main.path_txt.value = tInfo.path;
@@ -253,8 +253,8 @@ Main.displayTextureInfo = function(num) {
 			var i = _g++;
 			var t2 = t.resources[i];
 			Main.ROM.bin.data.position = t2.ofs;
-			var arr = window.createByteArray(window.ROM.bin.data.readUint8Array(t2.size));
-			var ovr = Main.getOVR(num);
+			var arr = Main.ROM.bin.data.readByteThingy(t2.size,false);
+			var ovr = tInfo.resInfo.formatOVR;
 			var tx = framework_codec_Texture.decodeTexture(arr,t2.size,ovr);
 			if(tx.format > -1) {
 				Main.gfx.drawTexture(posX,posY,tx,ovr.forceOpacity);
@@ -267,8 +267,8 @@ Main.displayTextureInfo = function(num) {
 		}
 	} else {
 		Main.ROM.bin.data.position = t.resources[0].ofs;
-		var arr = window.createByteArray(window.ROM.bin.data.readUint8Array(t.resources[0].size));
-		var ovr = Main.getOVR(num);
+		var arr = Main.ROM.bin.data.readByteThingy(t.resources[0].size,false);
+		var ovr = tInfo.resInfo.formatOVR;
 		var tx = framework_codec_Texture.decodeTexture(arr,t.resources[0].size,ovr);
 		if(tx.format > -1) {
 			Main.gfx.drawTexture(0,0,tx,ovr.forceOpacity);
@@ -283,7 +283,9 @@ Main.createByteArray = function(src,end) {
 Main.hexa = function(n) {
 	return StringTools.hex(n,2);
 };
+Math.__name__ = true;
 var StringTools = function() { };
+StringTools.__name__ = true;
 StringTools.hex = function(n,digits) {
 	var s = "";
 	var hexChars = "0123456789ABCDEF";
@@ -304,6 +306,7 @@ var framework_ByteThingyWhatToNameIt = function(src,endian) {
 	this.position = 0;
 	this.littleEndian = endian;
 };
+framework_ByteThingyWhatToNameIt.__name__ = true;
 framework_ByteThingyWhatToNameIt.prototype = {
 	readUint8: function() {
 		var out = this.tgt.b[this.position];
@@ -366,6 +369,12 @@ framework_ByteThingyWhatToNameIt.prototype = {
 		}
 		return out;
 	}
+	,readByteThingy: function(length,endian) {
+		var outBytes = new haxe_io_Bytes(new ArrayBuffer(length));
+		outBytes.blit(0,this.tgt,this.position,length);
+		this.position += length;
+		return new framework_ByteThingyWhatToNameIt(outBytes,endian);
+	}
 	,readUint16Array: function(length,endian) {
 		var this1 = new Uint16Array(length);
 		var out = this1;
@@ -418,9 +427,12 @@ framework_ByteThingyWhatToNameIt.prototype = {
 var framework_EditorState = function() {
 	this.currTex = 0;
 };
+framework_EditorState.__name__ = true;
 var framework_ManifestDB = function() { };
+framework_ManifestDB.__name__ = true;
 var framework_codec_BinPack = function() {
 };
+framework_codec_BinPack.__name__ = true;
 framework_codec_BinPack.prototype = {
 	loadData: function(bin) {
 		this.data = bin;
@@ -429,7 +441,6 @@ framework_codec_BinPack.prototype = {
 		this.offsetTable = tab;
 	}
 	,getItem: function(ord) {
-		console.log("getItem() runs!");
 		this.offsetTable.position = ord * 4;
 		var ofs = this.offsetTable.readUint32(false);
 		var endOfs = this.offsetTable.readUint32(false);
@@ -459,6 +470,7 @@ framework_codec_BinPack.prototype = {
 	}
 };
 var framework_codec_Texture = function() { };
+framework_codec_Texture.__name__ = true;
 framework_codec_Texture.decodeTexture = function(src,sizeComp,hack) {
 	var raw = framework_codec_Texture.decompressTexture(src,sizeComp);
 	var header = framework_codec_Texture.readTextureHeader(raw);
@@ -1077,6 +1089,37 @@ framework_codec_Texture.readTextureI8 = function(src,header,noSwizzle) {
 	var this1 = new Uint8Array(4);
 	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
 };
+var haxe_Exception = function(message,previous,native) {
+	Error.call(this,message);
+	this.message = message;
+	this.__previousException = previous;
+	this.__nativeException = native != null ? native : this;
+};
+haxe_Exception.__name__ = true;
+haxe_Exception.thrown = function(value) {
+	if(((value) instanceof haxe_Exception)) {
+		return value.get_native();
+	} else if(((value) instanceof Error)) {
+		return value;
+	} else {
+		var e = new haxe_ValueException(value);
+		return e;
+	}
+};
+haxe_Exception.__super__ = Error;
+haxe_Exception.prototype = $extend(Error.prototype,{
+	get_native: function() {
+		return this.__nativeException;
+	}
+});
+var haxe_ValueException = function(value,previous,native) {
+	haxe_Exception.call(this,String(value),previous,native);
+	this.value = value;
+};
+haxe_ValueException.__name__ = true;
+haxe_ValueException.__super__ = haxe_Exception;
+haxe_ValueException.prototype = $extend(haxe_Exception.prototype,{
+});
 var haxe_io_Bytes = function(data) {
 	this.length = data.byteLength;
 	this.b = new Uint8Array(data);
@@ -1084,9 +1127,7 @@ var haxe_io_Bytes = function(data) {
 	data.hxBytes = this;
 	data.bytes = this.b;
 };
-haxe_io_Bytes.alloc = function(length) {
-	return new haxe_io_Bytes(new ArrayBuffer(length));
-};
+haxe_io_Bytes.__name__ = true;
 haxe_io_Bytes.ofData = function(b) {
 	var hb = b.hxBytes;
 	if(hb != null) {
@@ -1094,10 +1135,30 @@ haxe_io_Bytes.ofData = function(b) {
 	}
 	return new haxe_io_Bytes(b);
 };
+haxe_io_Bytes.prototype = {
+	blit: function(pos,src,srcpos,len) {
+		if(pos < 0 || srcpos < 0 || len < 0 || pos + len > this.length || srcpos + len > src.length) {
+			throw haxe_Exception.thrown(haxe_io_Error.OutsideBounds);
+		}
+		if(srcpos == 0 && len == src.b.byteLength) {
+			this.b.set(src.b,pos);
+		} else {
+			this.b.set(src.b.subarray(srcpos,srcpos + len),pos);
+		}
+	}
+};
+var haxe_io_Error = $hxEnums["haxe.io.Error"] = { __ename__:true,__constructs__:null
+	,Blocked: {_hx_name:"Blocked",_hx_index:0,__enum__:"haxe.io.Error",toString:$estr}
+	,Overflow: {_hx_name:"Overflow",_hx_index:1,__enum__:"haxe.io.Error",toString:$estr}
+	,OutsideBounds: {_hx_name:"OutsideBounds",_hx_index:2,__enum__:"haxe.io.Error",toString:$estr}
+	,Custom: ($_=function(e) { return {_hx_index:3,e:e,__enum__:"haxe.io.Error",toString:$estr}; },$_._hx_name="Custom",$_.__params__ = ["e"],$_)
+};
+haxe_io_Error.__constructs__ = [haxe_io_Error.Blocked,haxe_io_Error.Overflow,haxe_io_Error.OutsideBounds,haxe_io_Error.Custom];
 var haxe_iterators_ArrayIterator = function(array) {
 	this.current = 0;
 	this.array = array;
 };
+haxe_iterators_ArrayIterator.__name__ = true;
 haxe_iterators_ArrayIterator.prototype = {
 	hasNext: function() {
 		return this.current < this.array.length;
@@ -1106,6 +1167,103 @@ haxe_iterators_ArrayIterator.prototype = {
 		return this.array[this.current++];
 	}
 };
+var js_Boot = function() { };
+js_Boot.__name__ = true;
+js_Boot.__string_rec = function(o,s) {
+	if(o == null) {
+		return "null";
+	}
+	if(s.length >= 5) {
+		return "<...>";
+	}
+	var t = typeof(o);
+	if(t == "function" && (o.__name__ || o.__ename__)) {
+		t = "object";
+	}
+	switch(t) {
+	case "function":
+		return "<function>";
+	case "object":
+		if(o.__enum__) {
+			var e = $hxEnums[o.__enum__];
+			var con = e.__constructs__[o._hx_index];
+			var n = con._hx_name;
+			if(con.__params__) {
+				s = s + "\t";
+				return n + "(" + ((function($this) {
+					var $r;
+					var _g = [];
+					{
+						var _g1 = 0;
+						var _g2 = con.__params__;
+						while(true) {
+							if(!(_g1 < _g2.length)) {
+								break;
+							}
+							var p = _g2[_g1];
+							_g1 = _g1 + 1;
+							_g.push(js_Boot.__string_rec(o[p],s));
+						}
+					}
+					$r = _g;
+					return $r;
+				}(this))).join(",") + ")";
+			} else {
+				return n;
+			}
+		}
+		if(((o) instanceof Array)) {
+			var str = "[";
+			s += "\t";
+			var _g = 0;
+			var _g1 = o.length;
+			while(_g < _g1) {
+				var i = _g++;
+				str += (i > 0 ? "," : "") + js_Boot.__string_rec(o[i],s);
+			}
+			str += "]";
+			return str;
+		}
+		var tostr;
+		try {
+			tostr = o.toString;
+		} catch( _g ) {
+			return "???";
+		}
+		if(tostr != null && tostr != Object.toString && typeof(tostr) == "function") {
+			var s2 = o.toString();
+			if(s2 != "[object Object]") {
+				return s2;
+			}
+		}
+		var str = "{\n";
+		s += "\t";
+		var hasp = o.hasOwnProperty != null;
+		var k = null;
+		for( k in o ) {
+		if(hasp && !o.hasOwnProperty(k)) {
+			continue;
+		}
+		if(k == "prototype" || k == "__class__" || k == "__super__" || k == "__interfaces__" || k == "__properties__") {
+			continue;
+		}
+		if(str.length != 2) {
+			str += ", \n";
+		}
+		str += s + k + " : " + js_Boot.__string_rec(o[k],s);
+		}
+		s = s.substring(1);
+		str += "\n" + s + "}";
+		return str;
+	case "string":
+		return o;
+	default:
+		return String(o);
+	}
+};
+String.__name__ = true;
+Array.__name__ = true;
+js_Boot.__toStr = ({ }).toString;
 Main.filesTotal = 3;
 Main.filesLoaded = 0;
 Main.menu = window.document.getElementById("navbar");
@@ -1115,7 +1273,6 @@ Main.path_txt = window.document.getElementById("path-txt");
 Main.filein = window.document.getElementById("thefile");
 Main.filein2 = window.document.getElementById("thefile2");
 Main.filein3 = window.document.getElementById("thefile3");
-Main.isTex0 = false;
 framework_codec_Texture.CLUT4BIT = [0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255];
 Main.main();
 })({});

@@ -43,7 +43,7 @@ class BinPack
 			TODO : 
 				EOF
 		*/
-		Syntax.code("console.log(\"getItem() runs!\")");
+		// Syntax.code("console.log(\"getItem() runs!\")");
 		offsetTable.position = (ord * 4);
 		var ofs:Int = offsetTable.readUint32(false);
 		var endOfs:Int = offsetTable.readUint32(false);

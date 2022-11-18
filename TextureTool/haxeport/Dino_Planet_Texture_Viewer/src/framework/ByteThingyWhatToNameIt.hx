@@ -87,6 +87,13 @@ class ByteThingyWhatToNameIt
 		return out;
 	}
 	
+	public function readByteThingy(length:Int,endian:Bool) : ByteThingyWhatToNameIt {
+		var outBytes = Bytes.alloc(length);
+		outBytes.blit(0, tgt, position, length);
+		position += length;
+		return new ByteThingyWhatToNameIt(outBytes, endian);
+	}
+	
 	public function readUint16Array(length:Int,endian:Bool) {
 		var out = new UInt16Array(length);
 		for (i in 0...length) {

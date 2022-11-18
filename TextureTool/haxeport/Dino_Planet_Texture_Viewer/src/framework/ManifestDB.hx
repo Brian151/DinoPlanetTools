@@ -3,10 +3,21 @@ import framework.codec.Texture.TTextureFormatOverride;
 
 // TODO : generalize
 typedef TDPFileManifest = {
-	texturePackName : String,
-	texturePackHash : String,
+	fileName : String,
+	fileHash : String,
 	name : String,
-	textures : Array<TDPManifestTextureInfo>
+	resources : Array<TManifestResourceEntry>
+}
+
+typedef TManifestResourceEntry = {
+	ordinalId : Int,
+	type : String,
+	name : String,
+	tags : Array<String>,
+	path : String,
+	hash : String,
+	sources : Array<TDPManifestSourceFileReference>,
+	resInfo : TDPManifestTextureInfoNew // todo
 }
 
 typedef TDPTextureOverrideDB = {
@@ -14,29 +25,18 @@ typedef TDPTextureOverrideDB = {
 	textureIDs : Array<Int>
 }
 
-// should split this out to 
-// ManifestEntry [general-purpose] 
-// and ManifestTextureInfo [unique : textures]
-typedef TDPManifestTextureInfo = {
-	// general-purpose fields
-	ordinalId : Int, // position in the pack
-	name : String, // "Krystal Eye" for searching & export/import
-	tags : Array<String>, // ["object","player","krystal"] for searching
-	path : String, // "objects/player/krystal/eye" , used specifically during export/import
-	// texture-specific
-	isArrayTexture : Bool, // indicates array textures , might not need
-	subTextures : Array<TDPManifestTextureInfo>, // each single texture in an array needs an entry for itself
-	// general-purpose again
-	hash : String, // MD5 hash of [decompressed] file/data, indentify duplicate/altered files
-	// textures... 
-	// these three fields exist in the headers but it's useful to add them to the manifest databases
-	format : Int, // format ID
+typedef TDPManifestTextureInfoNew = {
+	// each frame needs an entry for itself [?]
+	frames : Array<TDPManifestTextureInfoNew>,
+	// MD5 hash of [decompressed] file/data, identify duplicate/altered files
+	hash : String, 
+	// is there a reason to keep this? headers concievably could change
+	format : Int, 
 	width : Int,
 	height : Int,
-	// general-purpose...
-	hasSources : Bool, // needed?
-	sources : Array<TDPManifestSourceFileReference>
+	formatOVR : TTextureFormatOverride
 }
+
 
 // better name? 
 typedef TDPManifestSourceFileReference = {
@@ -69,5 +69,5 @@ class ManifestDB
 	public var texturePackName : String;
 	public var texturePackHash : String;
 	public var name : String;
-	public var textures : Array<TDPManifestTextureInfo>;
+	public var textures : Array<TDPManifestTextureInfoNew>;
 }

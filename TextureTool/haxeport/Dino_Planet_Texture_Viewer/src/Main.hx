@@ -2,6 +2,7 @@ package;
 import framework.EditorState;
 import haxe.io.Bytes;
 import framework.codec.Texture;
+import js.html.Blob;
 import js.html.Element;
 import js.html.InputElement;
 import js.html.FileReader;
@@ -34,8 +35,46 @@ class Main
 	static public var filein2:InputElement = cast document.getElementById("thefile2");
 	static public var filein3:InputElement = cast document.getElementById("thefile3");
 	static public var ROM:EditorState;
-	static var isTex0:Bool = false;
 	static var gfx:Graphics;
+	
+/*TODO : 
+	generic manifest format
+	ignore manifest file when loading [it's meta-data, NOT essential]
+	remove overrides [texture format 100% ? how do the "Weird" ones work?]
+	
+	auto-link files to editorstate if matching names / formats ["tex0" + [".bin", ".tab", ".manifest"]]
+	compare vanilla / modded packs
+		load default manifest files + bins
+	
+	windows / linux builds [or at least haxe-neko]
+		ifdefs for bits that just HAVE to use js.Syntax()
+		non-web graphics system
+	load from folders [almost certainly requires native build !]
+	
+	edit textures
+		import / export textures
+		load individual textures
+		UI redesign
+			editor UI
+			better display of "array texture"
+			render icon of actual texture
+			re-scaling...
+			use tags for searching
+		project files
+		pack bins
+			encode textures
+				texture format 100 %
+				compression
+			model texture references
+				more tools ?
+				export parts of the model "data"
+					[de/en]code at least parts of the model "data" format" (aka opcodes)
+				
+	
+	steal some assets (;
+		debug font
+		some menu elements
+		"default icon" - x */
 	
 	// core funcs
 	static function main() {
@@ -43,25 +82,23 @@ class Main
 		ROM.bin = new BinPack();
 		gfx = new Graphics(cast document.getElementById("screen"));
 		
-		// glue code exports haxe funcs to global (window)
-		Syntax.code("window.createByteArray = function(src) {var buf = {0}(src.length);var arr = new {1}(buf,false);arr.writeUint8Array(src);arr.position = 0;return arr;}", Bytes.alloc, ByteThingyWhatToNameIt);
+		// for debugging with console
 		Syntax.code("window.ROM = {0}", ROM);
+		
+		// glue code exports haxe funcs/vars to global (window)
 		Syntax.code("window.advanceTexture = {0}", advanceTexture);
 		Syntax.code("window.rewindTexture = {0}", rewindTexture);
 		Syntax.code("window.displayTextureInfo = {0}", displayTextureInfo);
 		Syntax.code("window.loadFile = {0}", loadFile);
+		Syntax.code("window.exportManifest = {0}", exportManifest);
+		Syntax.code("window.updateEntry = {0}", updateCurrentEntry);
 	}
 	static public function onFileLoaded() {
 		filesLoaded++;
 		if (filesLoaded < filesTotal) {
 			return;
 		}
-		// TODO : cleanup
-		// this code generates a fresh manifest
-		//parseTab();
-		// this code reads entire .bin and lists/extracts ALL textures
-		//startloop();
-		//createManifest("TEX0","Dinosaur Planet : 2001 developer test build[?] - UI and Particle");
+		
 		initMenu();
 		ROM.currTex = 713;
 		displayTextureInfo(ROM.currTex);
@@ -74,11 +111,6 @@ class Main
 			var fr_tex = new FileReader();
 			var fr_tab = new FileReader();
 			var fr_mf = new FileReader();
-			if (file_texbin.name == "TEX0.bin") { // 10/25/2022 3:53 PM MST : hacked-in, refactor pending
-				isTex0 = true;
-			} else {
-				isTex0 = false;
-			}
 			
 			fr_tex.onload = function() {
 				var arr:ByteThingyWhatToNameIt = createByteArray(fr_tex.result,false);
@@ -99,33 +131,23 @@ class Main
 			fr_mf.readAsText(file_texmf);
 		}
 	}
-	static function getOVR(id) : TTextureFormatOverride {
-		if (!isTex0) { // 10/25/2022 3:54 PM MST : hacked-in, refactor pending
-			return {width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false,id:id};
-		}
-		var ovr:Dynamic = Syntax.code("window.TEXOVR");
-		for (i in 0...ovr.overrides.length) {
-			var curr = ovr.overrides[i];
-			if (curr.id == id) {
-				// console.log("overrides for TEX # " + id + " : " + JSON.stringify(curr));
-				return curr;
-			}
-		}
-		return {width:0,height:0,format:-1,noSwizzle:false,forceOpacity:false,id:id};
-	}
 	static function updateEntry(num:Int,name:String,tags:String,path:String) {
-		ROM.manifest.textures[num].name = name;
-		ROM.manifest.textures[num].tags = tags.split(",");
-		ROM.manifest.textures[num].path = path;
+		ROM.manifest.resources[num].name = name;
+		ROM.manifest.resources[num].tags = tags.split(",");
+		ROM.manifest.resources[num].path = path;
 		// how to de-couple this...
 		var menuName:Element = document.getElementById("texName_" + num);
 		menuName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + name_txt.value;
+	}
+	static public function exportManifest() {
+		var blob:Blob = new Blob([Json.stringify(ROM.manifest)], {type: "text/plain;charset=utf-8"});
+		Syntax.code("saveAs({0}, \"manifest.json\")", blob);
 	}
 	
 	// UI funcs
 	static function initMenu() {
 		// todo : not hard-code this
-		for (i in 0...3651) {
+		for (i in 0...ROM.manifest.resources.length) {
 			generateMenuItem(i);
 		}
 	}
@@ -146,7 +168,7 @@ class Main
 		entryIcon.src = "default_icon.png";
 		entryIcon.setAttribute("class","texPreview");
 		var entryName = document.createElement("h3");
-		var tInfo = ROM.manifest.textures[ord];
+		var tInfo = ROM.manifest.resources[ord];
 		//console.log(tInfo);
 		entryName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + tInfo.name;
 		entryButton.appendChild(entryIcon);
@@ -171,12 +193,18 @@ class Main
 		ROM.currTex -= 1;
 		displayTextureInfo(ROM.currTex);
 	}
+	public static function updateCurrentEntry() { // just HTML... 
+		var tName:String = name_txt.value;
+		var tTags:String = tags_txt.value;
+		var tPath:String = path_txt.value;
+		updateEntry(ROM.currTex,tName,tTags,tPath);
+	}
 	static function displayTextureInfo(num) {
 		if (num > 3651 || num < 0) { // still bad
 			num = 0;
 		}
 		
-		var tInfo:Dynamic = ROM.manifest.textures[num];
+		var tInfo:Dynamic = ROM.manifest.resources[num];
 		name_txt.value = tInfo.name;
 		tags_txt.value = tInfo.tags.join(",");
 		path_txt.value = tInfo.path;
@@ -188,8 +216,8 @@ class Main
 			for (i in 0...t.resCount) {
 				var t2 = t.resources[i];
 				ROM.bin.data.position = t2.ofs;
-				var arr:ByteThingyWhatToNameIt = Syntax.code("window.createByteArray(window.ROM.bin.data.readUint8Array(t2.size))");
-				var ovr:TTextureFormatOverride = getOVR(num);
+				var arr:ByteThingyWhatToNameIt = ROM.bin.data.readByteThingy(t2.size, false);
+				var ovr:TTextureFormatOverride = tInfo.resInfo.formatOVR;
 				
 				var tx = Texture.decodeTexture(arr,t2.size,ovr);
 				if (tx.format > -1) {
@@ -204,8 +232,8 @@ class Main
 			}
 		} else {
 			ROM.bin.data.position = t.resources[0].ofs;
-			var arr:ByteThingyWhatToNameIt = Syntax.code("window.createByteArray(window.ROM.bin.data.readUint8Array(t.resources[0].size))");
-			var ovr:TTextureFormatOverride = getOVR(num);
+			var arr:ByteThingyWhatToNameIt = ROM.bin.data.readByteThingy(t.resources[0].size,false);
+			var ovr:TTextureFormatOverride = tInfo.resInfo.formatOVR;
 			var tx = Texture.decodeTexture(arr,t.resources[0].size,ovr);
 			//console.log(dumpTextureInfo(t.ofs,t.size,0,num));
 			if (tx.format > -1) {
