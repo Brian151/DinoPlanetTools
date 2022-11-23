@@ -62,21 +62,39 @@ class ByteThingyWhatToNameIt
 		return (a << 16) + (b << 8) + c;
 	}
 	
-	// TODO : ACTUALLY IMPLEMENT SIGNED INTS!!!
 	public function readInt8(endian) {
-		return readUint8();
+		var n = readUint8();
+		var flag = ((n & 0x80) >> 7) == 1;
+		if (flag) {
+			n | Util.signExtension[31 - 7];
+		}
 	}
 	
 	public function readInt16(endian) {
-		return readUint16(endian);
+		var n = readUint16(endian);
+		var flag = ((n & 0x8000) >> 15) == 1;
+		if (flag) {
+			n | Util.signExtension[31 - 15];
+		}
+		return n;
 	}
 	
 	public function readInt32(endian) {
-		return readUint32(endian);
+		var n = readUint32(endian);
+		var flag = ((n & 0x80000000) >> 31) == 1;
+		if (flag) {
+			n | Util.signExtension[31 - 31];
+		}
+		return n;
 	}
 	
 	public function readInt24(endian) {
-		return readUint24(endian);
+		var n = readUint24(endian);
+		var flag = ((n & 0x800000) >> 23) == 1;
+		if (flag) {
+			n | Util.signExtension[31 - 23];
+		}
+		return n;
 	}
 	
 	public function readUint8Array(length:Int) {
