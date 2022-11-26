@@ -1,0 +1,48 @@
+[prerequisites]
+1. TEX<0,1>.bin/.tab/.manifest.json
+    the TEX bins/tabs may be extracted from the ROM via
+        1a. DinoFST (https://github.com/HugoPeters/dinofst)
+        1b. the decompilation tools (https://github.com/zestydevy/dinosaur-planet)
+        1c. the #dp-general channel on the Dinosaur Planet Fan Community Discord server
+          the message was pinned by a staff member
+    the manifest.json is a custom format for this tool and the current one
+      always can be found in the data directory of this tool
+2. for the time being, files found within the ROM will not be included
+
+
+[starting]
+1. 
+load the desired TEX.bin 
+    load the matching TEX<x>.bin, TEX<x>, TEX<x>.manifest.json files
+      into the corresponding file inputs
+2. 
+click the "LOAD!" button
+
+[navigating]
+1. click any of the buttons to the left to view a texture and its details
+2. previous/next will open the previous/next textures, respectively
+
+
+
+[editing texture details]
+1. name : this is a human-friendly name for the texture
+2. tags : comma-seaparated tags to make searching/organizing easier*
+3. path : the full file path to export/import to/from**
+4. update entry : the current contents of the aforementioned text boxes will 
+  be written to the manifest entry for this texture
+
+5. previous/next by default will update this texture's entry before cycling
+  there is currently no way to disable this behavior
+
+[importing/exporting]
+1. export manifest data will export the current manifest to a json file
+2. by nature, loading a manifest file is to import it
+3. **textures cannot at this time be imported/exported
+
+[tips and troubleshooting]
+1. create a separarate folder for your bins/tabs/manifests
+2. the tool may need to be re-loaded the first time it's launched
+  cause not yet identified
+
+*searching not yet implemented
+

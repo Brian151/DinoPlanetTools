@@ -1,9 +1,14 @@
 package;
+import js.lib.ArrayBuffer;
+import js.lib.Uint8Array;
+import haxe.io.Bytes;
+import framework.ByteThingyWhatToNameIt;
 
 // TODO : split this, will regret not doing so later!
 
 class Util 
 {
+	// > Math
 	public static var signExtension:Array<Int> = [
 		-1, // 0
 		-2,
@@ -39,16 +44,16 @@ class Util
 		-2147483648 // 31
 	];
 	
-	]
+	// > ???
 	// B > KB > MB > GB > ...
 	public static function dataSize(size:Int) : String {
 		var k : Int = 1024; 
 		var m : Int = k * k;
 		var g : Int = m * k; // NEVER gonna happen in an N64 game...lol
 		
-		var fk : Int = size / k;
-		var fm : Int = size / m; 
-		var fg : Int = size / g;
+		var fk : Int = Math.floor(size / k);
+		var fm : Int = Math.floor(size / m); 
+		var fg : Int = Math.floor(size / g);
 		
 		if (fg >= 1) {
 			return truncateDecimals(fg,2) + " GB";
@@ -60,14 +65,27 @@ class Util
 		return size + " B";
 	}
 	
+	// > Math?
 	/* 
 		toFixed(), without rounding
 		https://stackoverflow.com/a/12810744
 	*/
-	public static inline function truncateDecimal(num:Int,places:Int) : String {
-		var num2 : String = num.toString(); //If it's not already a String
-		var out : String = num2.slice(0, (num2.indexOf(".")) + (places + 1));
+	public static inline function truncateDecimals(num:Int, places:Int) : String {
+		var num2 : String = Std.string(num); //If it's not already a String
+		var out : String = num2.substr(0, (num2.indexOf(".")) + (places + 1));
 		return out;
 	}
 	
+	// > ???
+	// gross ... 
+	public static function createByteArray(src:ArrayBuffer,end:Bool) {
+		var arr = new Uint8Array(src);
+		var bytearr:Bytes = Bytes.ofData(arr.buffer);
+		return new ByteThingyWhatToNameIt(bytearr, end);
+	}
+	
+	// > Math?
+	public static function hexa(n:Int) : String {
+		return StringTools.hex(n,2);
+	}
 }

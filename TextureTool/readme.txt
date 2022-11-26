@@ -3,12 +3,9 @@ work in progress tool for dinosaur planet textures
 currently supports viewing* and extracting textures
 
 usage:
-	load a matching .bin, .tab, and manifest JSON (only TEX1 tested/supported at this time)
-	it's suggested to copy TEX1.manifest.json to the same folder as your .bin and .tab
+	load a matching .bin, .tab, and manifest JSON
 	some slowdown during load may be encountered, milegage varies based on your specs (JS is slow!)
-	
-	user interface should be self-explanatory
-	
+	see HOWTOUSE.txt for more precise info
 
 goals:
 	view/edit:
@@ -21,10 +18,7 @@ goals:
 		tag textures - x
 		re-pack bins
 		FAR FUTURE : edit model texrefs[?]
-		
-*some textures cannot be viewed, cause errors
-	some formats not yet implemented or aren't decoding properly
-	issues with image dimensions
-	TEX0 has a highly likely chance of causing errors, even a crash
+
+*TEXPRE.bin, despite my best efforts, cannot be decoded as of yet
 	
 by https://github.com/Brian151

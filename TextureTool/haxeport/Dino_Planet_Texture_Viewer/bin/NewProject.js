@@ -89,10 +89,10 @@ Graphics.prototype = {
 			while(_g2 < _g3) {
 				var iX = _g2++;
 				var base = posP * 4;
-				var r = Main.hexa(arrP[base]);
-				var g = Main.hexa(arrP[base + 1]);
-				var b = Main.hexa(arrP[base + 2]);
-				var a = Main.hexa(arrP[base + 3]);
+				var r = Util.hexa(arrP[base]);
+				var g = Util.hexa(arrP[base + 1]);
+				var b = Util.hexa(arrP[base + 2]);
+				var a = Util.hexa(arrP[base + 3]);
 				this.ctx.fillStyle = "#" + r + g + b + a;
 				this.ctx.fillRect(posX,posY,scale,scale);
 				posX += scale;
@@ -126,6 +126,23 @@ Graphics.prototype = {
 		}
 	}
 };
+var HxOverrides = function() { };
+HxOverrides.__name__ = true;
+HxOverrides.substr = function(s,pos,len) {
+	if(len == null) {
+		len = s.length;
+	} else if(len < 0) {
+		if(pos == 0) {
+			len = s.length + len;
+		} else {
+			return "";
+		}
+	}
+	return s.substr(pos,len);
+};
+HxOverrides.now = function() {
+	return Date.now();
+};
 var Main = function() { };
 Main.__name__ = true;
 Main.main = function() {
@@ -133,21 +150,21 @@ Main.main = function() {
 	Main.ROM.bin = new framework_codec_BinPack();
 	Main.gfx = new Graphics(window.document.getElementById("screen"));
 	window.ROM = Main.ROM;
-	window.advanceTexture = Main.advanceTexture;
-	window.rewindTexture = Main.rewindTexture;
-	window.displayTextureInfo = Main.displayTextureInfo;
+	window.advanceTexture = ui_UI.advanceTexture;
+	window.rewindTexture = ui_UI.rewindTexture;
+	window.displayTextureInfo = ui_UI.displayTextureInfo;
 	window.loadFile = Main.loadFile;
 	window.exportManifest = Main.exportManifest;
-	window.updateEntry = Main.updateCurrentEntry;
+	window.updateEntry = ui_UI.updateCurrentEntry;
 };
 Main.onFileLoaded = function() {
 	Main.filesLoaded++;
 	if(Main.filesLoaded < Main.filesTotal) {
 		return;
 	}
-	Main.initMenu();
+	ui_UI.initMenu(Main.gfx,Main.menu,Main.name_txt,Main.tags_txt,Main.path_txt);
 	Main.ROM.currTex = 713;
-	Main.displayTextureInfo(Main.ROM.currTex);
+	ui_UI.displayTextureInfo(Main.ROM.currTex);
 };
 Main.loadFile = function() {
 	if(Main.filein.files.length > 0 && Main.filein2.files.length > 0 && Main.filein3.files.length > 0) {
@@ -158,12 +175,12 @@ Main.loadFile = function() {
 		var fr_tab = new FileReader();
 		var fr_mf = new FileReader();
 		fr_tex.onload = function() {
-			var arr = Main.createByteArray(fr_tex.result,false);
+			var arr = Util.createByteArray(fr_tex.result,false);
 			Main.ROM.bin.loadData(arr);
 			Main.onFileLoaded();
 		};
 		fr_tab.onload = function() {
-			var arr = Main.createByteArray(fr_tab.result,false);
+			var arr = Util.createByteArray(fr_tab.result,false);
 			Main.ROM.bin.loadOffsets(arr);
 			Main.onFileLoaded();
 		};
@@ -187,102 +204,6 @@ Main.exportManifest = function() {
 	var blob = new Blob([JSON.stringify(Main.ROM.manifest)],{ type : "text/plain;charset=utf-8"});
 	saveAs(blob, "manifest.json");
 };
-Main.initMenu = function() {
-	var _g = 0;
-	var _g1 = Main.ROM.manifest.resources.length;
-	while(_g < _g1) {
-		var i = _g++;
-		Main.generateMenuItem(i);
-	}
-};
-Main.generateMenuItem = function(ord) {
-	var entryButton = window.document.createElement("div");
-	entryButton.setAttribute("class","navEntry");
-	entryButton.onclick = function() {var tName = Main.name_txt.value; var tTags = Main.tags_txt.value;var tPath = Main.path_txt.value;Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);Main.ROM.currTex= ord;window.displayTextureInfo(ord);}
-	var entryIcon = new Image();
-	entryIcon.width = 32;
-	entryIcon.height = 32;
-	entryIcon.src = "default_icon.png";
-	entryIcon.setAttribute("class","texPreview");
-	var entryName = window.document.createElement("h3");
-	var tInfo = Main.ROM.manifest.resources[ord];
-	entryName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + tInfo.name;
-	entryButton.appendChild(entryIcon);
-	entryName.setAttribute("class","texName");
-	entryName.setAttribute("id","texName_" + ord);
-	entryButton.appendChild(entryName);
-	Main.menu.appendChild(entryButton);
-};
-Main.advanceTexture = function() {
-	var tName = Main.name_txt.value;
-	var tTags = Main.tags_txt.value;
-	var tPath = Main.path_txt.value;
-	Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);
-	Main.ROM.currTex += 1;
-	Main.displayTextureInfo(Main.ROM.currTex);
-};
-Main.rewindTexture = function() {
-	var tName = Main.name_txt.value;
-	var tTags = Main.tags_txt.value;
-	var tPath = Main.path_txt.value;
-	Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);
-	Main.ROM.currTex -= 1;
-	Main.displayTextureInfo(Main.ROM.currTex);
-};
-Main.updateCurrentEntry = function() {
-	var tName = Main.name_txt.value;
-	var tTags = Main.tags_txt.value;
-	var tPath = Main.path_txt.value;
-	Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);
-};
-Main.displayTextureInfo = function(num) {
-	if(num > 3651 || num < 0) {
-		num = 0;
-	}
-	var tInfo = Main.ROM.manifest.resources[num];
-	Main.name_txt.value = tInfo.name;
-	Main.tags_txt.value = tInfo.tags.join(",");
-	Main.path_txt.value = tInfo.path;
-	var t = Main.ROM.bin.getItem(num);
-	if(t.resCount > 1) {
-		var posX = 0;
-		var posY = 0;
-		var _g = 0;
-		var _g1 = t.resCount;
-		while(_g < _g1) {
-			var i = _g++;
-			var t2 = t.resources[i];
-			Main.ROM.bin.data.position = t2.ofs;
-			var arr = Main.ROM.bin.data.readByteThingy(t2.size,false);
-			var ovr = tInfo.resInfo.formatOVR;
-			var tx = framework_codec_Texture.decodeTexture(arr,t2.size,ovr);
-			if(tx.format > -1) {
-				Main.gfx.drawTexture(posX,posY,tx,ovr.forceOpacity);
-				posY += tx.height + 8;
-				if(posY >= 608 - (tx.height + 8)) {
-					posY = 0;
-					posX += tx.width + 8;
-				}
-			}
-		}
-	} else {
-		Main.ROM.bin.data.position = t.resources[0].ofs;
-		var arr = Main.ROM.bin.data.readByteThingy(t.resources[0].size,false);
-		var ovr = tInfo.resInfo.formatOVR;
-		var tx = framework_codec_Texture.decodeTexture(arr,t.resources[0].size,ovr);
-		if(tx.format > -1) {
-			Main.gfx.drawTexture(0,0,tx,ovr.forceOpacity);
-		}
-	}
-};
-Main.createByteArray = function(src,end) {
-	var arr = new Uint8Array(src);
-	var bytearr = haxe_io_Bytes.ofData(arr.buffer);
-	return new framework_ByteThingyWhatToNameIt(bytearr,end);
-};
-Main.hexa = function(n) {
-	return StringTools.hex(n,2);
-};
 Math.__name__ = true;
 var StringTools = function() { };
 StringTools.__name__ = true;
@@ -300,6 +221,43 @@ StringTools.hex = function(n,digits) {
 		while(s.length < digits) s = "0" + s;
 	}
 	return s;
+};
+var Util = function() { };
+Util.__name__ = true;
+Util.dataSize = function(size) {
+	var k = 1024;
+	var m = k * k;
+	var g = m * k;
+	var fk = Math.floor(size / k);
+	var fm = Math.floor(size / m);
+	var fg = Math.floor(size / g);
+	if(fg >= 1) {
+		var num2 = fg == null ? "null" : "" + fg;
+		var out = HxOverrides.substr(num2,0,num2.indexOf(".") + 3);
+		return out + " GB";
+	} else if(fm >= 1) {
+		var num2 = fm == null ? "null" : "" + fm;
+		var out = HxOverrides.substr(num2,0,num2.indexOf(".") + 3);
+		return out + " MB";
+	} else if(fk >= 1) {
+		var num2 = fk == null ? "null" : "" + fk;
+		var out = HxOverrides.substr(num2,0,num2.indexOf(".") + 3);
+		return out + " KB";
+	}
+	return size + " B";
+};
+Util.truncateDecimals = function(num,places) {
+	var num2 = num == null ? "null" : "" + num;
+	var out = HxOverrides.substr(num2,0,num2.indexOf(".") + (places + 1));
+	return out;
+};
+Util.createByteArray = function(src,end) {
+	var arr = new Uint8Array(src);
+	var bytearr = haxe_io_Bytes.ofData(arr.buffer);
+	return new framework_ByteThingyWhatToNameIt(bytearr,end);
+};
+Util.hexa = function(n) {
+	return StringTools.hex(n,2);
 };
 var framework_ByteThingyWhatToNameIt = function(src,endian) {
 	this.tgt = src;
@@ -347,16 +305,35 @@ framework_ByteThingyWhatToNameIt.prototype = {
 		return (a << 16) + (b << 8) + c;
 	}
 	,readInt8: function(endian) {
-		return this.readUint8();
+		var n = this.readUint8();
+		var flag = (n & 128) >> 7 == 1;
+		if(flag) {
+			n |= Util.signExtension[24];
+		}
 	}
 	,readInt16: function(endian) {
-		return this.readUint16(endian);
+		var n = this.readUint16(endian);
+		var flag = (n & 32768) >> 15 == 1;
+		if(flag) {
+			n |= Util.signExtension[16];
+		}
+		return n;
 	}
 	,readInt32: function(endian) {
-		return this.readUint32(endian);
+		var n = this.readUint32(endian);
+		var flag = (n & -2147483648) >> 31 == 1;
+		if(flag) {
+			n |= Util.signExtension[0];
+		}
+		return n;
 	}
 	,readInt24: function(endian) {
-		return this.readUint24(endian);
+		var n = this.readUint24(endian);
+		var flag = (n & 8388608) >> 23 == 1;
+		if(flag) {
+			n |= Util.signExtension[8];
+		}
+		return n;
 	}
 	,readUint8Array: function(length) {
 		var this1 = new Uint8Array(length);
@@ -1261,6 +1238,104 @@ js_Boot.__string_rec = function(o,s) {
 		return String(o);
 	}
 };
+var ui_UI = function() { };
+ui_UI.__name__ = true;
+ui_UI.initMenu = function(ctx,menuEl,name,tags,path) {
+	ui_UI.gfx = ctx;
+	ui_UI.menu = menuEl;
+	ui_UI.name_txt = name;
+	ui_UI.tags_txt = tags;
+	ui_UI.path_txt = path;
+	var _g = 0;
+	var _g1 = Main.ROM.manifest.resources.length;
+	while(_g < _g1) {
+		var i = _g++;
+		ui_UI.generateMenuItem(i);
+	}
+};
+ui_UI.generateMenuItem = function(ord) {
+	var entryButton = window.document.createElement("div");
+	entryButton.setAttribute("class","navEntry");
+	entryButton.onclick = function() {var tName = ui_UI.name_txt.value; var tTags = ui_UI.tags_txt.value;var tPath = ui_UI.path_txt.value;Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);Main.ROM.currTex= ord;window.displayTextureInfo(ord);}
+	var entryIcon = new Image();
+	entryIcon.width = 32;
+	entryIcon.height = 32;
+	entryIcon.src = "default_icon.png";
+	entryIcon.setAttribute("class","texPreview");
+	var entryName = window.document.createElement("h3");
+	var tInfo = Main.ROM.manifest.resources[ord];
+	entryName.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;" + tInfo.name;
+	entryButton.appendChild(entryIcon);
+	entryName.setAttribute("class","texName");
+	entryName.setAttribute("id","texName_" + ord);
+	entryButton.appendChild(entryName);
+	ui_UI.menu.appendChild(entryButton);
+};
+ui_UI.advanceTexture = function() {
+	var tName = ui_UI.name_txt.value;
+	var tTags = ui_UI.tags_txt.value;
+	var tPath = ui_UI.path_txt.value;
+	Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);
+	Main.ROM.currTex += 1;
+	ui_UI.displayTextureInfo(Main.ROM.currTex);
+};
+ui_UI.rewindTexture = function() {
+	var tName = ui_UI.name_txt.value;
+	var tTags = ui_UI.tags_txt.value;
+	var tPath = ui_UI.path_txt.value;
+	Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);
+	Main.ROM.currTex -= 1;
+	ui_UI.displayTextureInfo(Main.ROM.currTex);
+};
+ui_UI.updateCurrentEntry = function() {
+	var tName = ui_UI.name_txt.value;
+	var tTags = ui_UI.tags_txt.value;
+	var tPath = ui_UI.path_txt.value;
+	Main.updateEntry(Main.ROM.currTex,tName,tTags,tPath);
+};
+ui_UI.displayTextureInfo = function(num) {
+	if(num > 3651 || num < 0) {
+		num = 0;
+	}
+	var tInfo = Main.ROM.manifest.resources[num];
+	ui_UI.name_txt.value = tInfo.name;
+	ui_UI.tags_txt.value = tInfo.tags.join(",");
+	ui_UI.path_txt.value = tInfo.path;
+	var t = Main.ROM.bin.getItem(num);
+	if(t.resCount > 1) {
+		var posX = 0;
+		var posY = 0;
+		var _g = 0;
+		var _g1 = t.resCount;
+		while(_g < _g1) {
+			var i = _g++;
+			var t2 = t.resources[i];
+			Main.ROM.bin.data.position = t2.ofs;
+			var arr = Main.ROM.bin.data.readByteThingy(t2.size,false);
+			var ovr = tInfo.resInfo.formatOVR;
+			var tx = framework_codec_Texture.decodeTexture(arr,t2.size,ovr);
+			if(tx.format > -1) {
+				ui_UI.gfx.drawTexture(posX,posY,tx,ovr.forceOpacity);
+				posY += tx.height + 8;
+				if(posY >= 608 - (tx.height + 8)) {
+					posY = 0;
+					posX += tx.width + 8;
+				}
+			}
+		}
+	} else {
+		Main.ROM.bin.data.position = t.resources[0].ofs;
+		var arr = Main.ROM.bin.data.readByteThingy(t.resources[0].size,false);
+		var ovr = tInfo.resInfo.formatOVR;
+		var tx = framework_codec_Texture.decodeTexture(arr,t.resources[0].size,ovr);
+		if(tx.format > -1) {
+			ui_UI.gfx.drawTexture(0,0,tx,ovr.forceOpacity);
+		}
+	}
+};
+if(typeof(performance) != "undefined" ? typeof(performance.now) == "function" : false) {
+	HxOverrides.now = performance.now.bind(performance);
+}
 String.__name__ = true;
 Array.__name__ = true;
 js_Boot.__toStr = ({ }).toString;
@@ -1273,6 +1348,7 @@ Main.path_txt = window.document.getElementById("path-txt");
 Main.filein = window.document.getElementById("thefile");
 Main.filein2 = window.document.getElementById("thefile2");
 Main.filein3 = window.document.getElementById("thefile3");
+Util.signExtension = [-1,-2,-4,-8,-16,-32,-64,-128,-256,-512,-1024,-2048,-4096,-8192,-16384,-32768,-65536,-131072,-262144,-524288,-1048576,-2097152,-4194304,-8388608,-16777216,-33554432,-67108864,-134217728,-268435456,-536870912,-1073741824,-2147483648];
 framework_codec_Texture.CLUT4BIT = [0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255];
 Main.main();
 })({});
