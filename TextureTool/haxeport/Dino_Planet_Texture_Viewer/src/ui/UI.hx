@@ -7,6 +7,7 @@ import js.html.Image;
 import framework.ByteThingyWhatToNameIt;
 import framework.codec.Texture;
 import framework.codec.Texture.TTextureFormatOverride;
+import framework.editor.FileExporter;
 
 class UI
 {
@@ -122,6 +123,15 @@ class UI
 				gfx.drawTexture(0,0,tx,ovr.forceOpacity);
 			}
 		}
+	}
+	
+	// todo : select which format, not press specific button
+	public static function exportZip() {
+		FileExporter.exportZip(Main.ROM, 0);
+	}
+	
+	public static function exportZipPNG() {
+		FileExporter.exportZip(Main.ROM, 1);
 	}
 	
 	// how ? 

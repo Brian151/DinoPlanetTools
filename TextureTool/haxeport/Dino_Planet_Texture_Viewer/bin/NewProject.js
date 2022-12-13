@@ -17,63 +17,11 @@ Graphics.prototype = {
 	drawTexture: function(x,y,texture,forceOpacity) {
 		this.ctx.fillStyle = "#000000";
 		this.ctx.fillRect(0,0,this.scrn.width,this.scrn.height);
-		var turtle = new ImageData(texture.width,texture.height);
-		var size = texture.width * texture.height;
-		var pal = texture.palette;
-		var f = texture.format;
-		if(f == 23 || f == 7) {
-			if(forceOpacity) {
-				var _g = 0;
-				var _g1 = size;
-				while(_g < _g1) {
-					var i = _g++;
-					var base = i * 4;
-					var basePal = texture.pixels[i] * 4;
-					turtle.data[base] = texture.palette[basePal];
-					turtle.data[base + 1] = texture.palette[basePal + 1];
-					turtle.data[base + 2] = texture.palette[basePal + 2];
-					turtle.data[base + 3] = 255;
-				}
-			} else {
-				var _g = 0;
-				var _g1 = size;
-				while(_g < _g1) {
-					var i = _g++;
-					var base = i * 4;
-					var basePal = texture.pixels[i] * 4;
-					turtle.data[base] = texture.palette[basePal];
-					turtle.data[base + 1] = texture.palette[basePal + 1];
-					turtle.data[base + 2] = texture.palette[basePal + 2];
-					turtle.data[base + 3] = texture.palette[basePal + 3];
-				}
-			}
-			this.drawPallete(texture.palette);
-		} else if(f == 1 || f == 0 || f == 17 || f == 2 || f == 5 || f == 6 || f == 4 || f == 3) {
-			if(forceOpacity) {
-				var _g = 0;
-				var _g1 = size;
-				while(_g < _g1) {
-					var i = _g++;
-					var base = i * 4;
-					turtle.data[base] = texture.pixels[base];
-					turtle.data[base + 1] = texture.pixels[base + 1];
-					turtle.data[base + 2] = texture.pixels[base + 2];
-					turtle.data[base + 3] = 255;
-				}
-			} else {
-				var _g = 0;
-				var _g1 = size;
-				while(_g < _g1) {
-					var i = _g++;
-					var base = i * 4;
-					turtle.data[base] = texture.pixels[base];
-					turtle.data[base + 1] = texture.pixels[base + 1];
-					turtle.data[base + 2] = texture.pixels[base + 2];
-					turtle.data[base + 3] = texture.pixels[base + 3];
-				}
-			}
-		}
+		var turtle = framework_codec_Texture.convertToImage(texture,forceOpacity);
 		this.drawImageData(turtle,x,y,1);
+		if(texture.format == 7 || texture.format == 8) {
+			this.drawPallete(texture.palette);
+		}
 	}
 	,drawImageData: function(iDat,x,y,scale) {
 		var posX = x;
@@ -128,6 +76,13 @@ Graphics.prototype = {
 };
 var HxOverrides = function() { };
 HxOverrides.__name__ = true;
+HxOverrides.cca = function(s,index) {
+	var x = s.charCodeAt(index);
+	if(x != x) {
+		return undefined;
+	}
+	return x;
+};
 HxOverrides.substr = function(s,pos,len) {
 	if(len == null) {
 		len = s.length;
@@ -156,6 +111,8 @@ Main.main = function() {
 	window.loadFile = Main.loadFile;
 	window.exportManifest = Main.exportManifest;
 	window.updateEntry = ui_UI.updateCurrentEntry;
+	window.exportZip = ui_UI.exportZip;
+	window.exportPNGZip = ui_UI.exportZipPNG;
 };
 Main.onFileLoaded = function() {
 	Main.filesLoaded++;
@@ -258,6 +215,160 @@ Util.createByteArray = function(src,end) {
 };
 Util.hexa = function(n) {
 	return StringTools.hex(n,2);
+};
+var format_png_Color = $hxEnums["format.png.Color"] = { __ename__:true,__constructs__:null
+	,ColGrey: ($_=function(alpha) { return {_hx_index:0,alpha:alpha,__enum__:"format.png.Color",toString:$estr}; },$_._hx_name="ColGrey",$_.__params__ = ["alpha"],$_)
+	,ColTrue: ($_=function(alpha) { return {_hx_index:1,alpha:alpha,__enum__:"format.png.Color",toString:$estr}; },$_._hx_name="ColTrue",$_.__params__ = ["alpha"],$_)
+	,ColIndexed: {_hx_name:"ColIndexed",_hx_index:2,__enum__:"format.png.Color",toString:$estr}
+};
+format_png_Color.__constructs__ = [format_png_Color.ColGrey,format_png_Color.ColTrue,format_png_Color.ColIndexed];
+var format_png_Chunk = $hxEnums["format.png.Chunk"] = { __ename__:true,__constructs__:null
+	,CEnd: {_hx_name:"CEnd",_hx_index:0,__enum__:"format.png.Chunk",toString:$estr}
+	,CHeader: ($_=function(h) { return {_hx_index:1,h:h,__enum__:"format.png.Chunk",toString:$estr}; },$_._hx_name="CHeader",$_.__params__ = ["h"],$_)
+	,CData: ($_=function(b) { return {_hx_index:2,b:b,__enum__:"format.png.Chunk",toString:$estr}; },$_._hx_name="CData",$_.__params__ = ["b"],$_)
+	,CPalette: ($_=function(b) { return {_hx_index:3,b:b,__enum__:"format.png.Chunk",toString:$estr}; },$_._hx_name="CPalette",$_.__params__ = ["b"],$_)
+	,CUnknown: ($_=function(id,data) { return {_hx_index:4,id:id,data:data,__enum__:"format.png.Chunk",toString:$estr}; },$_._hx_name="CUnknown",$_.__params__ = ["id","data"],$_)
+};
+format_png_Chunk.__constructs__ = [format_png_Chunk.CEnd,format_png_Chunk.CHeader,format_png_Chunk.CData,format_png_Chunk.CPalette,format_png_Chunk.CUnknown];
+var format_png_Writer = function(o) {
+	this.o = o;
+	o.set_bigEndian(true);
+};
+format_png_Writer.__name__ = true;
+format_png_Writer.prototype = {
+	write: function(png) {
+		var b = 137;
+		this.o.writeByte(b);
+		var b = 80;
+		this.o.writeByte(b);
+		var b = 78;
+		this.o.writeByte(b);
+		var b = 71;
+		this.o.writeByte(b);
+		var b = 13;
+		this.o.writeByte(b);
+		var b = 10;
+		this.o.writeByte(b);
+		var b = 26;
+		this.o.writeByte(b);
+		var b = 10;
+		this.o.writeByte(b);
+		var _g_head = png.h;
+		while(_g_head != null) {
+			var val = _g_head.item;
+			_g_head = _g_head.next;
+			var c = val;
+			switch(c._hx_index) {
+			case 0:
+				this.writeChunk("IEND",new haxe_io_Bytes(new ArrayBuffer(0)));
+				break;
+			case 1:
+				var h = c.h;
+				var b = new haxe_io_BytesOutput();
+				b.set_bigEndian(true);
+				b.writeInt32(h.width);
+				b.writeInt32(h.height);
+				b.writeByte(h.colbits);
+				var _g = h.color;
+				var tmp;
+				switch(_g._hx_index) {
+				case 0:
+					var alpha = _g.alpha;
+					tmp = alpha ? 4 : 0;
+					break;
+				case 1:
+					var alpha1 = _g.alpha;
+					tmp = alpha1 ? 6 : 2;
+					break;
+				case 2:
+					tmp = 3;
+					break;
+				}
+				b.writeByte(tmp);
+				b.writeByte(0);
+				b.writeByte(0);
+				b.writeByte(h.interlaced ? 1 : 0);
+				this.writeChunk("IHDR",b.getBytes());
+				break;
+			case 2:
+				var d = c.b;
+				this.writeChunk("IDAT",d);
+				break;
+			case 3:
+				var b1 = c.b;
+				this.writeChunk("PLTE",b1);
+				break;
+			case 4:
+				var id = c.id;
+				var data = c.data;
+				this.writeChunk(id,data);
+				break;
+			}
+		}
+	}
+	,writeChunk: function(id,data) {
+		this.o.writeInt32(data.length);
+		this.o.writeString(id);
+		this.o.write(data);
+		var crc_crc = -1;
+		var tmp = (crc_crc ^ HxOverrides.cca(id,0)) & 255;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		crc_crc = crc_crc >>> 8 ^ tmp;
+		var tmp = (crc_crc ^ HxOverrides.cca(id,1)) & 255;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		crc_crc = crc_crc >>> 8 ^ tmp;
+		var tmp = (crc_crc ^ HxOverrides.cca(id,2)) & 255;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		crc_crc = crc_crc >>> 8 ^ tmp;
+		var tmp = (crc_crc ^ HxOverrides.cca(id,3)) & 255;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+		crc_crc = crc_crc >>> 8 ^ tmp;
+		var b = data.b.bufferValue;
+		var _g = 0;
+		var _g1 = data.length;
+		while(_g < _g1) {
+			var i = _g++;
+			var tmp = (crc_crc ^ b.bytes[i]) & 255;
+			tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+			tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+			tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+			tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+			tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+			tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+			tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+			tmp = tmp >>> 1 ^ -(tmp & 1) & -306674912;
+			crc_crc = crc_crc >>> 8 ^ tmp;
+		}
+		this.o.writeInt32(crc_crc ^ -1);
+	}
 };
 var framework_ByteThingyWhatToNameIt = function(src,endian) {
 	this.tgt = src;
@@ -378,6 +489,51 @@ framework_ByteThingyWhatToNameIt.prototype = {
 		this.tgt.b[this.position] = v & 255;
 		this.position++;
 	}
+	,writeUint16: function(v,endian) {
+		var a = (v & 65280) >> 8;
+		var b = v & 255;
+		if(endian) {
+			this.tgt.b[this.position] = b;
+			this.tgt.b[this.position + 1] = a;
+		} else {
+			this.tgt.b[this.position] = a;
+			this.tgt.b[this.position + 1] = b;
+		}
+		this.position += 2;
+	}
+	,writeUint32: function(v,endian) {
+		var a = (v & -16777216) >> 24;
+		var b = (v & 16711680) >> 16;
+		var c = (v & 65280) >> 8;
+		var d = v & 255;
+		if(endian) {
+			this.tgt.b[this.position] = d;
+			this.tgt.b[this.position + 1] = c;
+			this.tgt.b[this.position + 2] = b;
+			this.tgt.b[this.position + 3] = a;
+		} else {
+			this.tgt.b[this.position] = a;
+			this.tgt.b[this.position + 1] = b;
+			this.tgt.b[this.position + 2] = c;
+			this.tgt.b[this.position + 3] = d;
+		}
+		this.position += 4;
+	}
+	,writeUint24: function(v,endian) {
+		var a = (v & 16711680) >> 16;
+		var b = (v & 65280) >> 8;
+		var c = v & 255;
+		if(endian) {
+			this.tgt.b[this.position] = c;
+			this.tgt.b[this.position + 1] = b;
+			this.tgt.b[this.position + 2] = a;
+		} else {
+			this.tgt.b[this.position] = a;
+			this.tgt.b[this.position + 1] = b;
+			this.tgt.b[this.position + 2] = c;
+		}
+		this.position += 3;
+	}
 	,writeUint8Array: function(src) {
 		var _g = 0;
 		var _g1 = src.length;
@@ -454,12 +610,6 @@ framework_codec_Texture.decodeTexture = function(src,sizeComp,hack) {
 	var noSwizzle = false;
 	var forceOpacity = false;
 	if(hack != null) {
-		if(hack.width > 0) {
-			header.width = hack.width;
-		}
-		if(hack.height > 0) {
-			header.height = hack.height;
-		}
 		if(hack.format > -1) {
 			header.format = hack.format;
 		}
@@ -505,14 +655,41 @@ framework_codec_Texture.compressTexture = function(src) {
 	throw new Error("compression not implemented");
 };
 framework_codec_Texture.readTextureHeader = function(src) {
-	var out = { width : src.readUint8(), height : src.readUint8(), format : src.readUint8(), unk_0x3 : src.readUint8(), unk_0x4 : src.readUint16(false), flags : src.readInt16(false), PTR_gdl : src.readUint32(false), levels : src.readUint16(false), unk_0xe : src.readUint16(false), unk_0x10 : src.readUint16(false), gdlIdx : src.readInt16(false), PTR_next : src.readUint32(false), unk_0x18 : src.readInt16(false), unk_0x1a : src.readUint8(), unk_0x1b : src.readUint8(), cms : src.readUint8(), masks : src.readUint8(), cmt : src.readUint8(), maskt : src.readUint8()};
+	var out = { width : src.readUint8(), height : src.readUint8(), format : src.readUint8(), sprX : src.readUint8(), sprY : src.readUint8(), unk_0x5 : src.readUint8(), flags : src.readInt16(false), PTR_gdl : src.readUint32(false), levels : src.readUint16(false), unk_0xe : src.readUint16(false), unk_0x10 : src.readUint16(false), gdlIdx : src.readInt16(false), PTR_next : src.readUint32(false), unk_0x18 : src.readInt16(false), unk_0x1a : src.readUint8(), hwMSB : src.readUint8(), cms : src.readUint8(), masks : src.readUint8(), cmt : src.readUint8(), maskt : src.readUint8(), type : 0};
+	out.width += (out.hwMSB & 240) << 4;
+	out.height += (out.hwMSB & 15) << 8;
+	out.type = (out.format & 240) >> 4;
 	out.format &= 15;
 	return out;
 };
 framework_codec_Texture.writeTextureHeader = function(src) {
 	var buf = new haxe_io_Bytes(new ArrayBuffer(32));
 	var dest = new framework_ByteThingyWhatToNameIt(buf,false);
-	throw new Error("texture header write not supported!");
+	var wMSB = src.width & 3840;
+	var hMSB = src.height & 3840;
+	dest.writeUint8(src.width & 255);
+	dest.writeUint8(src.height & 255);
+	wMSB <<= 4;
+	var formatByte = src.format | src.type << 4;
+	dest.writeUint8(formatByte);
+	dest.writeUint8(src.sprX);
+	dest.writeUint8(src.sprY);
+	dest.writeUint8(1);
+	dest.writeUint16(src.flags,false);
+	dest.writeUint32(src.PTR_gdl,false);
+	dest.writeUint16(src.levels,false);
+	dest.writeUint16(src.unk_0xe,false);
+	dest.writeUint16(src.unk_0x10,false);
+	dest.writeUint16(src.gdlIdx,false);
+	dest.writeUint32(src.PTR_next,false);
+	dest.writeUint16(src.unk_0x18,false);
+	dest.writeUint8(src.unk_0x1a);
+	dest.writeUint8(wMSB | hMSB);
+	dest.writeUint8(src.cms);
+	dest.writeUint8(src.masks);
+	dest.writeUint8(src.cmt);
+	dest.writeUint8(src.maskt);
+	throw new Error("texture header write WIP, final files may not function in-game");
 };
 framework_codec_Texture.deSwizzleBits64 = function(src,row) {
 	var out = [];
@@ -1066,6 +1243,140 @@ framework_codec_Texture.readTextureI8 = function(src,header,noSwizzle) {
 	var this1 = new Uint8Array(4);
 	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
 };
+framework_codec_Texture.convertToImage = function(texture,forceOpacity) {
+	var img = new ImageData(texture.width,texture.height);
+	var size = texture.width * texture.height;
+	var pal = texture.palette;
+	var f = texture.format;
+	if(f == 7 || f == 8) {
+		if(forceOpacity) {
+			var _g = 0;
+			var _g1 = size;
+			while(_g < _g1) {
+				var i = _g++;
+				var base = i * 4;
+				var basePal = texture.pixels[i] * 4;
+				img.data[base] = texture.palette[basePal];
+				img.data[base + 1] = texture.palette[basePal + 1];
+				img.data[base + 2] = texture.palette[basePal + 2];
+				img.data[base + 3] = 255;
+			}
+		} else {
+			var _g = 0;
+			var _g1 = size;
+			while(_g < _g1) {
+				var i = _g++;
+				var base = i * 4;
+				var basePal = texture.pixels[i] * 4;
+				img.data[base] = texture.palette[basePal];
+				img.data[base + 1] = texture.palette[basePal + 1];
+				img.data[base + 2] = texture.palette[basePal + 2];
+				img.data[base + 3] = texture.palette[basePal + 3];
+			}
+		}
+	} else if(f == 0 || f == 1 || f == 2 || f == 3 || f == 4 || f == 5 || f == 6) {
+		if(forceOpacity) {
+			var _g = 0;
+			var _g1 = size;
+			while(_g < _g1) {
+				var i = _g++;
+				var base = i * 4;
+				img.data[base] = texture.pixels[base];
+				img.data[base + 1] = texture.pixels[base + 1];
+				img.data[base + 2] = texture.pixels[base + 2];
+				img.data[base + 3] = 255;
+			}
+		} else {
+			var _g = 0;
+			var _g1 = size;
+			while(_g < _g1) {
+				var i = _g++;
+				var base = i * 4;
+				img.data[base] = texture.pixels[base];
+				img.data[base + 1] = texture.pixels[base + 1];
+				img.data[base + 2] = texture.pixels[base + 2];
+				img.data[base + 3] = texture.pixels[base + 3];
+			}
+		}
+	}
+	return img;
+};
+var framework_editor_FileExporter = function() { };
+framework_editor_FileExporter.__name__ = true;
+framework_editor_FileExporter.exportZip = function(src,format) {
+	var zipfile = new JSZip();
+	var binfile = src.bin;
+	var bindat = src.bin.data;
+	var exportName = src.manifest.fileName;
+	var _g = 0;
+	var _g1 = src.manifest.resources.length;
+	while(_g < _g1) {
+		var i = _g++;
+		var curr = src.manifest.resources[i];
+		var ovr = curr.resInfo.formatOVR;
+		var tName = curr.path;
+		var texInfo0 = binfile.getItem(i);
+		if(curr.resInfo.frames.length > 0) {
+			var _g2 = 0;
+			var _g3 = curr.resInfo.frames.length;
+			while(_g2 < _g3) {
+				var j = _g2++;
+				var texInfo = texInfo0.resources[j];
+				if(format == 0) {
+					var texFile = framework_codec_Texture.decompressTexture(bindat,texInfo.size).readUint8Array(texInfo.size);
+					zipfile.file((tName + "frame_" + j + ".dptf"),texFile);
+				} else if(format == 1) {
+					var texFile1 = framework_codec_Texture.decodeTexture(bindat,texInfo.size,ovr);
+					var forceOpacity = ovr.forceOpacity;
+					var pngFile = framework_editor_FileExporter.exportPNGForZip(texFile1,forceOpacity);
+					zipfile.file((tName + "frame_" + j + ".png"),pngFile);
+				} else {
+					var texFile2 = framework_codec_Texture.decompressTexture(bindat,texInfo.size).readUint8Array(texInfo.size);
+					zipfile.file((tName + "frame_" + j + ".dptf"),texFile2);
+				}
+			}
+		} else {
+			var texInfo1 = texInfo0.resources[0];
+			bindat.position = texInfo1.ofs;
+			if(format == 0) {
+				var texFile3 = framework_codec_Texture.decompressTexture(bindat,texInfo1.size).readUint8Array(texInfo1.size);
+				zipfile.file(tName,texFile3);
+			} else if(format == 1) {
+				var texFile4 = framework_codec_Texture.decodeTexture(bindat,texInfo1.size,ovr);
+				var forceOpacity1 = ovr.forceOpacity;
+				var pngFile1 = framework_editor_FileExporter.exportPNGForZip(texFile4,forceOpacity1);
+				var fName = tName.split(".")[0];
+				zipfile.file((fName + ".png"),pngFile1);
+			} else {
+				var texFile5 = framework_codec_Texture.decompressTexture(bindat,texInfo1.size).readUint8Array(texInfo1.size);
+				zipfile.file(tName,texFile5);
+			}
+		}
+	}
+	zipfile.file("manifest.json",JSON.stringify(src.manifest));
+	zipfile.generateAsync({type:"blob",compression:"DEFLATE"}).then(function (blob) {saveAs(blob, exportName + ".zip");});
+};
+framework_editor_FileExporter.exportPNG = function(t,forceOpacity,fileName) {
+	var cnv = window.document.createElement("canvas");
+	cnv.width = t.width;
+	cnv.height = t.height;
+	var ctx = cnv.getContext("2d");
+	var img = framework_codec_Texture.convertToImage(t,forceOpacity);
+	ctx.putImageData(img,0,0);
+	cnv.toBlob(function (blob) {saveAs(blob,"fileName.png");});
+};
+framework_editor_FileExporter.exportPNGForZip = function(t,forceOpacity) {
+	var cnv = window.document.createElement("canvas");
+	cnv.width = t.width;
+	cnv.height = t.height;
+	var ctx = cnv.getContext("2d");
+	var img = framework_codec_Texture.convertToImage(t,forceOpacity);
+	ctx.putImageData(img,0,0);
+	var cut = "data:image/png;base64,";
+	var datURL = cnv.toDataURL().substring(cut.length);
+	var datByte = haxe_crypto_Base64.decode(datURL);
+	return new framework_ByteThingyWhatToNameIt(datByte,false).readUint8Array(datByte.length);
+};
 var haxe_Exception = function(message,previous,native) {
 	Error.call(this,message);
 	this.message = message;
@@ -1085,7 +1396,13 @@ haxe_Exception.thrown = function(value) {
 };
 haxe_Exception.__super__ = Error;
 haxe_Exception.prototype = $extend(Error.prototype,{
-	get_native: function() {
+	toString: function() {
+		return this.get_message();
+	}
+	,get_message: function() {
+		return this.message;
+	}
+	,get_native: function() {
 		return this.__nativeException;
 	}
 });
@@ -1105,6 +1422,44 @@ var haxe_io_Bytes = function(data) {
 	data.bytes = this.b;
 };
 haxe_io_Bytes.__name__ = true;
+haxe_io_Bytes.ofString = function(s,encoding) {
+	if(encoding == haxe_io_Encoding.RawNative) {
+		var buf = new Uint8Array(s.length << 1);
+		var _g = 0;
+		var _g1 = s.length;
+		while(_g < _g1) {
+			var i = _g++;
+			var c = s.charCodeAt(i);
+			buf[i << 1] = c & 255;
+			buf[i << 1 | 1] = c >> 8;
+		}
+		return new haxe_io_Bytes(buf.buffer);
+	}
+	var a = [];
+	var i = 0;
+	while(i < s.length) {
+		var c = s.charCodeAt(i++);
+		if(55296 <= c && c <= 56319) {
+			c = c - 55232 << 10 | s.charCodeAt(i++) & 1023;
+		}
+		if(c <= 127) {
+			a.push(c);
+		} else if(c <= 2047) {
+			a.push(192 | c >> 6);
+			a.push(128 | c & 63);
+		} else if(c <= 65535) {
+			a.push(224 | c >> 12);
+			a.push(128 | c >> 6 & 63);
+			a.push(128 | c & 63);
+		} else {
+			a.push(240 | c >> 18);
+			a.push(128 | c >> 12 & 63);
+			a.push(128 | c >> 6 & 63);
+			a.push(128 | c & 63);
+		}
+	}
+	return new haxe_io_Bytes(new Uint8Array(a).buffer);
+};
 haxe_io_Bytes.ofData = function(b) {
 	var hb = b.hxBytes;
 	if(hb != null) {
@@ -1124,6 +1479,238 @@ haxe_io_Bytes.prototype = {
 		}
 	}
 };
+var haxe_io_Encoding = $hxEnums["haxe.io.Encoding"] = { __ename__:true,__constructs__:null
+	,UTF8: {_hx_name:"UTF8",_hx_index:0,__enum__:"haxe.io.Encoding",toString:$estr}
+	,RawNative: {_hx_name:"RawNative",_hx_index:1,__enum__:"haxe.io.Encoding",toString:$estr}
+};
+haxe_io_Encoding.__constructs__ = [haxe_io_Encoding.UTF8,haxe_io_Encoding.RawNative];
+var haxe_crypto_Base64 = function() { };
+haxe_crypto_Base64.__name__ = true;
+haxe_crypto_Base64.decode = function(str,complement) {
+	if(complement == null) {
+		complement = true;
+	}
+	if(complement) {
+		while(HxOverrides.cca(str,str.length - 1) == 61) str = HxOverrides.substr(str,0,-1);
+	}
+	return new haxe_crypto_BaseCode(haxe_crypto_Base64.BYTES).decodeBytes(haxe_io_Bytes.ofString(str));
+};
+var haxe_crypto_BaseCode = function(base) {
+	var len = base.length;
+	var nbits = 1;
+	while(len > 1 << nbits) ++nbits;
+	if(nbits > 8 || len != 1 << nbits) {
+		throw haxe_Exception.thrown("BaseCode : base length must be a power of two.");
+	}
+	this.base = base;
+	this.nbits = nbits;
+};
+haxe_crypto_BaseCode.__name__ = true;
+haxe_crypto_BaseCode.prototype = {
+	initTable: function() {
+		var tbl = [];
+		var _g = 0;
+		while(_g < 256) {
+			var i = _g++;
+			tbl[i] = -1;
+		}
+		var _g = 0;
+		var _g1 = this.base.length;
+		while(_g < _g1) {
+			var i = _g++;
+			tbl[this.base.b[i]] = i;
+		}
+		this.tbl = tbl;
+	}
+	,decodeBytes: function(b) {
+		var nbits = this.nbits;
+		var base = this.base;
+		if(this.tbl == null) {
+			this.initTable();
+		}
+		var tbl = this.tbl;
+		var size = b.length * nbits >> 3;
+		var out = new haxe_io_Bytes(new ArrayBuffer(size));
+		var buf = 0;
+		var curbits = 0;
+		var pin = 0;
+		var pout = 0;
+		while(pout < size) {
+			while(curbits < 8) {
+				curbits += nbits;
+				buf <<= nbits;
+				var i = tbl[b.b[pin++]];
+				if(i == -1) {
+					throw haxe_Exception.thrown("BaseCode : invalid encoded char");
+				}
+				buf |= i;
+			}
+			curbits -= 8;
+			out.b[pout++] = buf >> curbits & 255;
+		}
+		return out;
+	}
+};
+var haxe_ds_List = function() {
+	this.length = 0;
+};
+haxe_ds_List.__name__ = true;
+var haxe_ds__$List_ListNode = function(item,next) {
+	this.item = item;
+	this.next = next;
+};
+haxe_ds__$List_ListNode.__name__ = true;
+var haxe_exceptions_PosException = function(message,previous,pos) {
+	haxe_Exception.call(this,message,previous);
+	if(pos == null) {
+		this.posInfos = { fileName : "(unknown)", lineNumber : 0, className : "(unknown)", methodName : "(unknown)"};
+	} else {
+		this.posInfos = pos;
+	}
+};
+haxe_exceptions_PosException.__name__ = true;
+haxe_exceptions_PosException.__super__ = haxe_Exception;
+haxe_exceptions_PosException.prototype = $extend(haxe_Exception.prototype,{
+	toString: function() {
+		return "" + haxe_Exception.prototype.toString.call(this) + " in " + this.posInfos.className + "." + this.posInfos.methodName + " at " + this.posInfos.fileName + ":" + this.posInfos.lineNumber;
+	}
+});
+var haxe_exceptions_NotImplementedException = function(message,previous,pos) {
+	if(message == null) {
+		message = "Not implemented";
+	}
+	haxe_exceptions_PosException.call(this,message,previous,pos);
+};
+haxe_exceptions_NotImplementedException.__name__ = true;
+haxe_exceptions_NotImplementedException.__super__ = haxe_exceptions_PosException;
+haxe_exceptions_NotImplementedException.prototype = $extend(haxe_exceptions_PosException.prototype,{
+});
+var haxe_io_BytesBuffer = function() {
+	this.pos = 0;
+	this.size = 0;
+};
+haxe_io_BytesBuffer.__name__ = true;
+haxe_io_BytesBuffer.prototype = {
+	addByte: function(byte) {
+		if(this.pos == this.size) {
+			this.grow(1);
+		}
+		this.view.setUint8(this.pos++,byte);
+	}
+	,addBytes: function(src,pos,len) {
+		if(pos < 0 || len < 0 || pos + len > src.length) {
+			throw haxe_Exception.thrown(haxe_io_Error.OutsideBounds);
+		}
+		if(this.pos + len > this.size) {
+			this.grow(len);
+		}
+		if(this.size == 0) {
+			return;
+		}
+		var sub = new Uint8Array(src.b.buffer,src.b.byteOffset + pos,len);
+		this.u8.set(sub,this.pos);
+		this.pos += len;
+	}
+	,grow: function(delta) {
+		var req = this.pos + delta;
+		var nsize = this.size == 0 ? 16 : this.size;
+		while(nsize < req) nsize = nsize * 3 >> 1;
+		var nbuf = new ArrayBuffer(nsize);
+		var nu8 = new Uint8Array(nbuf);
+		if(this.size > 0) {
+			nu8.set(this.u8);
+		}
+		this.size = nsize;
+		this.buffer = nbuf;
+		this.u8 = nu8;
+		this.view = new DataView(this.buffer);
+	}
+	,getBytes: function() {
+		if(this.size == 0) {
+			return new haxe_io_Bytes(new ArrayBuffer(0));
+		}
+		var b = new haxe_io_Bytes(this.buffer);
+		b.length = this.pos;
+		return b;
+	}
+};
+var haxe_io_Output = function() { };
+haxe_io_Output.__name__ = true;
+haxe_io_Output.prototype = {
+	writeByte: function(c) {
+		throw new haxe_exceptions_NotImplementedException(null,null,{ fileName : "haxe/io/Output.hx", lineNumber : 47, className : "haxe.io.Output", methodName : "writeByte"});
+	}
+	,writeBytes: function(s,pos,len) {
+		if(pos < 0 || len < 0 || pos + len > s.length) {
+			throw haxe_Exception.thrown(haxe_io_Error.OutsideBounds);
+		}
+		var b = s.b;
+		var k = len;
+		while(k > 0) {
+			this.writeByte(b[pos]);
+			++pos;
+			--k;
+		}
+		return len;
+	}
+	,set_bigEndian: function(b) {
+		this.bigEndian = b;
+		return b;
+	}
+	,write: function(s) {
+		var l = s.length;
+		var p = 0;
+		while(l > 0) {
+			var k = this.writeBytes(s,p,l);
+			if(k == 0) {
+				throw haxe_Exception.thrown(haxe_io_Error.Blocked);
+			}
+			p += k;
+			l -= k;
+		}
+	}
+	,writeFullBytes: function(s,pos,len) {
+		while(len > 0) {
+			var k = this.writeBytes(s,pos,len);
+			pos += k;
+			len -= k;
+		}
+	}
+	,writeInt32: function(x) {
+		if(this.bigEndian) {
+			this.writeByte(x >>> 24);
+			this.writeByte(x >> 16 & 255);
+			this.writeByte(x >> 8 & 255);
+			this.writeByte(x & 255);
+		} else {
+			this.writeByte(x & 255);
+			this.writeByte(x >> 8 & 255);
+			this.writeByte(x >> 16 & 255);
+			this.writeByte(x >>> 24);
+		}
+	}
+	,writeString: function(s,encoding) {
+		var b = haxe_io_Bytes.ofString(s,encoding);
+		this.writeFullBytes(b,0,b.length);
+	}
+};
+var haxe_io_BytesOutput = function() {
+	this.b = new haxe_io_BytesBuffer();
+};
+haxe_io_BytesOutput.__name__ = true;
+haxe_io_BytesOutput.__super__ = haxe_io_Output;
+haxe_io_BytesOutput.prototype = $extend(haxe_io_Output.prototype,{
+	writeByte: function(c) {
+		this.b.addByte(c);
+	}
+	,writeBytes: function(buf,pos,len) {
+		this.b.addBytes(buf,pos,len);
+		return len;
+	}
+	,getBytes: function() {
+		return this.b.getBytes();
+	}
+});
 var haxe_io_Error = $hxEnums["haxe.io.Error"] = { __ename__:true,__constructs__:null
 	,Blocked: {_hx_name:"Blocked",_hx_index:0,__enum__:"haxe.io.Error",toString:$estr}
 	,Overflow: {_hx_name:"Overflow",_hx_index:1,__enum__:"haxe.io.Error",toString:$estr}
@@ -1333,6 +1920,12 @@ ui_UI.displayTextureInfo = function(num) {
 		}
 	}
 };
+ui_UI.exportZip = function() {
+	framework_editor_FileExporter.exportZip(Main.ROM,0);
+};
+ui_UI.exportZipPNG = function() {
+	framework_editor_FileExporter.exportZip(Main.ROM,1);
+};
 if(typeof(performance) != "undefined" ? typeof(performance.now) == "function" : false) {
 	HxOverrides.now = performance.now.bind(performance);
 }
@@ -1349,6 +1942,9 @@ Main.filein = window.document.getElementById("thefile");
 Main.filein2 = window.document.getElementById("thefile2");
 Main.filein3 = window.document.getElementById("thefile3");
 Util.signExtension = [-1,-2,-4,-8,-16,-32,-64,-128,-256,-512,-1024,-2048,-4096,-8192,-16384,-32768,-65536,-131072,-262144,-524288,-1048576,-2097152,-4194304,-8388608,-16777216,-33554432,-67108864,-134217728,-268435456,-536870912,-1073741824,-2147483648];
+framework_codec_Texture.formats = ["RGBA32","RGBA16","I8","I4","IA16","IA8","IA4","CI4","CI8"];
 framework_codec_Texture.CLUT4BIT = [0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255];
+haxe_crypto_Base64.CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+haxe_crypto_Base64.BYTES = haxe_io_Bytes.ofString(haxe_crypto_Base64.CHARS);
 Main.main();
 })({});

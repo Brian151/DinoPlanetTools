@@ -66,7 +66,7 @@ class ByteThingyWhatToNameIt
 		var n = readUint8();
 		var flag = ((n & 0x80) >> 7) == 1;
 		if (flag) {
-			n | Util.signExtension[31 - 7];
+			n |= Util.signExtension[31 - 7];
 		}
 	}
 	
@@ -74,7 +74,7 @@ class ByteThingyWhatToNameIt
 		var n = readUint16(endian);
 		var flag = ((n & 0x8000) >> 15) == 1;
 		if (flag) {
-			n | Util.signExtension[31 - 15];
+			n |= Util.signExtension[31 - 15];
 		}
 		return n;
 	}
@@ -83,7 +83,7 @@ class ByteThingyWhatToNameIt
 		var n = readUint32(endian);
 		var flag = ((n & 0x80000000) >> 31) == 1;
 		if (flag) {
-			n | Util.signExtension[31 - 31];
+			n |= Util.signExtension[31 - 31];
 		}
 		return n;
 	}
@@ -92,7 +92,7 @@ class ByteThingyWhatToNameIt
 		var n = readUint24(endian);
 		var flag = ((n & 0x800000) >> 23) == 1;
 		if (flag) {
-			n | Util.signExtension[31 - 23];
+			n |= Util.signExtension[31 - 23];
 		}
 		return n;
 	}
@@ -132,6 +132,54 @@ class ByteThingyWhatToNameIt
 	public function writeUint8(v:Int) {
 		tgt.set(position, v & 255);
 		position++;
+	}
+	
+	public function writeUint16(v:Int, endian:Bool) {
+		var a:Int = (v & 0xff00) >> 8;
+		var b:Int = v & 0xff;
+		if (endian) {
+			tgt.set(position, b);
+			tgt.set(position + 1,a);
+		} else {
+			tgt.set(position, a);
+			tgt.set(position + 1,b);
+		}
+		position += 2;
+	}
+	
+	public function writeUint32(v:Int,endian:Bool) {
+		var a:Int = (v & 0xff000000) >> 24;
+		var b:Int = (v & 0xff0000) >> 16;
+		var c:Int = (v & 0xff00) >> 8;
+		var d:Int = v & 0xff;
+		if (endian) {
+			tgt.set(position, d);
+			tgt.set(position + 1, c);
+			tgt.set(position + 2, b);
+			tgt.set(position + 3, a);
+		} else {
+			tgt.set(position, a);
+			tgt.set(position + 1, b);
+			tgt.set(position + 2, c);
+			tgt.set(position + 3, d);
+		}
+		position += 4;
+	}
+	
+	public function writeUint24(v:Int, endian:Bool) {
+		var a:Int = (v & 0xff0000) >> 16;
+		var b:Int = (v & 0xff00) >> 8;
+		var c:Int = v & 0xff;
+		if (endian) {
+			tgt.set(position, c);
+			tgt.set(position + 1, b);
+			tgt.set(position + 2, a);
+		} else {
+			tgt.set(position, a);
+			tgt.set(position + 1, b);
+			tgt.set(position + 2, c);
+		}
+		position += 3;
 	}
 	
 	public function writeUint8Array(src:UInt8Array) {

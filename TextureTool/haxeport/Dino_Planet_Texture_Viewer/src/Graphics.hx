@@ -20,55 +20,11 @@ class Graphics
 	public function drawTexture(x:Int,y:Int,texture:TDinoPlanetTexture,forceOpacity:Bool) : Void {
 		ctx.fillStyle = "#000000";
 		ctx.fillRect(0,0,scrn.width,scrn.height);
-		var turtle:ImageData = new ImageData(texture.width,texture.height);
-		var size:Int = texture.width * texture.height;
-		var pal:UInt8Array = texture.palette;
-		var f:Int = texture.format;
-		if (f == 23 || f == 7) { // CI formats only
-			/* 
-				it made more sense to create two copies of this loop than do an extra if statement on every iteration
-				does it matter much? probably not
-			*/
-			if (forceOpacity) {
-				for (i in 0...size) {
-					var base:Int = i * 4;
-					var basePal:Int = texture.pixels[i] * 4;
-					turtle.data[base + 0] = texture.palette[basePal + 0];
-					turtle.data[base + 1] = texture.palette[basePal + 1];
-					turtle.data[base + 2] = texture.palette[basePal + 2];
-					turtle.data[base + 3] = 255;
-				}
-			} else {
-				for (i in 0...size) {
-					var base:Int = i * 4;
-					var basePal:Int = texture.pixels[i] * 4;
-					turtle.data[base + 0] = texture.palette[basePal + 0];
-					turtle.data[base + 1] = texture.palette[basePal + 1];
-					turtle.data[base + 2] = texture.palette[basePal + 2];
-					turtle.data[base + 3] = texture.palette[basePal + 3];
-				}
-			}
-			drawPallete(texture.palette);
-		} else if (f == 1 || f == 0 || f == 17 || f == 2 || f == 5 || f == 6 || f == 4 || f == 3) { // other formats are raw pixels
-			if (forceOpacity) {
-				for (i in 0...size) {
-					var base:Int = i * 4;
-					turtle.data[base + 0] = texture.pixels[base + 0];
-					turtle.data[base + 1] = texture.pixels[base + 1];
-					turtle.data[base + 2] = texture.pixels[base + 2];
-					turtle.data[base + 3] = 255;
-				}
-			} else {
-				for (i in 0...size) {
-					var base:Int = i * 4;
-					turtle.data[base + 0] = texture.pixels[base + 0];
-					turtle.data[base + 1] = texture.pixels[base + 1];
-					turtle.data[base + 2] = texture.pixels[base + 2];
-					turtle.data[base + 3] = texture.pixels[base + 3];
-				}
-			}
-		}
+		var turtle = Texture.convertToImage(texture,forceOpacity);
 		drawImageData(turtle, x, y, 1);
+		if (texture.format == 7 || texture.format == 8) {
+			drawPallete(texture.palette);
+		}
 	}
 	
 	public function drawImageData(iDat:ImageData,x:Int,y:Int,scale:Int) : Void {
@@ -79,10 +35,11 @@ class Graphics
 		for (iY in 0...iDat.height) {
 			for (iX in 0...iDat.width) {
 				var base:Int = posP * 4;
-				var r:String = Main.hexa(arrP[base]); // todo : revert this to Ints
-				var g:String = Main.hexa(arrP[base + 1]);
-				var b:String = Main.hexa(arrP[base + 2]);
-				var a:String = Main.hexa(arrP[base + 3]);
+				// todo : util funcs for this!
+				var r:String = Util.hexa(arrP[base]); // todo : revert this to Ints
+				var g:String = Util.hexa(arrP[base + 1]);
+				var b:String = Util.hexa(arrP[base + 2]);
+				var a:String = Util.hexa(arrP[base + 3]);
 				ctx.fillStyle = "#" + r + g + b + a;
 				ctx.fillRect(posX,posY,cast scale,cast scale);
 				posX += scale;

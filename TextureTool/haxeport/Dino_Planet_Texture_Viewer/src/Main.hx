@@ -1,6 +1,7 @@
 package;
 import Util;
 import framework.EditorState;
+import framework.editor.FileExporter;
 import haxe.io.Bytes;
 import framework.codec.Texture;
 import js.html.Blob;
@@ -93,6 +94,8 @@ class Main
 		Syntax.code("window.loadFile = {0}", loadFile);
 		Syntax.code("window.exportManifest = {0}", exportManifest);
 		Syntax.code("window.updateEntry = {0}", UI.updateCurrentEntry);
+		Syntax.code("window.exportZip = {0}", UI.exportZip);
+		Syntax.code("window.exportPNGZip = {0}", UI.exportZipPNG);
 	}
 	
 	static public function onFileLoaded() {
@@ -101,8 +104,21 @@ class Main
 			return;
 		}
 		
-		UI.initMenu(gfx,menu,name_txt,tags_txt,path_txt);
+		UI.initMenu(gfx, menu, name_txt, tags_txt, path_txt);
+		
 		ROM.currTex = 713;
+		// temp!
+		// FileExporter.exportZip(ROM,1);
+		/*var binfile = ROM.bin;
+		var bindat = ROM.bin.data;
+		var curr = ROM.manifest.resources[713];
+		var tOVR = curr.resInfo.formatOVR;
+		var texInfo0 = binfile.getItem(713);
+		var texInfo = texInfo0.resources[0];
+		bindat.position = texInfo.ofs;
+		var tex = Texture.decodeTexture(bindat, texInfo.size);
+		FileExporter.exportPNG(tex, tOVR.forceOpacity, "aFileName");*/
+		
 		UI.displayTextureInfo(ROM.currTex);
 	}
 	

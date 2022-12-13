@@ -1,18 +1,22 @@
 package framework.codec;
 import haxe.io.Bytes;
-import js.Syntax;
 import js.lib.Error;
 import haxe.io.UInt16Array;
 import haxe.io.UInt8Array;
 import framework.ByteThingyWhatToNameIt;
+// keep for testing purposes [for now]
+import js.Syntax;
+import js.html.ImageData;
 
+// thanks to DKR decomp team for identifying:  sprX,sprY,type
 typedef TDinoPlanetTextureHeader = {
 	// technically, these are not all Ints...
-	width : Int,
+	width : Int, 
 	height : Int,
 	format : Int,
-	unk_0x3 : Int,
-	unk_0x4 : Int,
+	sprX : Int, 
+	sprY : Int,
+	unk_0x5 : Int,
 	flags : Int,
 	PTR_gdl : Int,
 	levels : Int,
@@ -22,11 +26,12 @@ typedef TDinoPlanetTextureHeader = {
 	PTR_next : Int,
 	unk_0x18 : Int,
 	unk_0x1a : Int,
-	unk_0x1b : Int,
+	hwMSB : Int,
 	cms : Int,
 	masks : Int,
 	cmt : Int,
-	maskt : Int
+	maskt : Int,
+	type : Int
 }
 
 typedef TDinoPlanetTexture = {
@@ -39,7 +44,7 @@ typedef TDinoPlanetTexture = {
 
 typedef TTextureFormatOverride = {
 	format : Int,
-	width : Int,
+	width : Int, // width and height no longer needed
 	height : Int,
 	noSwizzle : Bool,
 	forceOpacity : Bool,
@@ -51,11 +56,23 @@ class Texture
 {
 	// TODO:
 	// TIDY UP!
-	// overrides [hopefully temp!]
 	// re-factor decoders
 	// re-implement debug funcs???
 	// compressor
 	// encoders
+	
+	// thx to DKR decomp for identifying all formats
+	static var formats:Array<String> = [
+		"RGBA32",
+		"RGBA16",
+		"I8",
+		"I4",
+		"IA16",
+		"IA8",
+		"IA4",
+		"CI4",
+		"CI8"
+	];
 	
 	static var CLUT4BIT:Array<Int> = [
 		0x00, // 0 
@@ -78,7 +95,7 @@ class Texture
 	
 
 	// some textures in TEX0 don't decode properly on their own
-	// temp[?] solution will be an override settings object
+	// temp[?] solution is an override settings object
 	// that will be stored in the manifest entries
 	public static function decodeTexture(src:ByteThingyWhatToNameIt,sizeComp:Int,?hack:TTextureFormatOverride) : TDinoPlanetTexture {
 		var raw = decompressTexture(src,sizeComp);
@@ -87,12 +104,6 @@ class Texture
 		var forceOpacity : Bool = false;
 		
 		if (hack != null) {
-			if (hack.width > 0) {
-				header.width = hack.width;
-			}
-			if (hack.height > 0) {
-				header.height = hack.height;
-			}
 			if (hack.format > -1) {
 				header.format = hack.format;
 			}
@@ -131,11 +142,11 @@ class Texture
 	}
 
 	// debug funcs:
-	// dumpTextureInfo, dump1B
+	// dumpTextureInfo
 
 	// making these public is debatable, however the manifest needs this feature
 	// and it makes little sense to code-dupe it
-	// maybe add a param to make decode/encode return raw texture data?
+	// extract to another class ?
 	public static function decompressTexture(src:ByteThingyWhatToNameIt,sizeComp:Int) : ByteThingyWhatToNameIt {
 		//var size:Int = src.readInt32();
 		//var what:Int = src.readUint8();
@@ -160,8 +171,9 @@ class Texture
 			width : src.readUint8(),
 			height : src.readUint8(),
 			format : src.readUint8(),
-			unk_0x3 : src.readUint8(),
-			unk_0x4 : src.readUint16(false),
+			sprX : src.readUint8(),
+			sprY : src.readUint8(),
+			unk_0x5 : src.readUint8(),
 			flags : src.readInt16(false),
 			PTR_gdl : src.readUint32(false),
 			levels : src.readUint16(false),
@@ -171,22 +183,51 @@ class Texture
 			PTR_next : src.readUint32(false),
 			unk_0x18 : src.readInt16(false), // pixelBufferSize?
 			unk_0x1a : src.readUint8(),
-			unk_0x1b : src.readUint8(),
+			hwMSB : src.readUint8(),
 			cms : src.readUint8(),
 			masks : src.readUint8(),
 			cmt : src.readUint8(),
-			maskt : src.readUint8()
+			maskt : src.readUint8(),
+			type : 0
 		}
+		out.width += ((out.hwMSB & 0xf0) << 4);
+		out.height += ((out.hwMSB & 0x0f) << 8);
+		out.type = ((out.format & 0xf0) >> 4);
 		out.format &= 0x0f;
 		return out;
 	}
 
-	// TODO, need to add various write methods to "ByteThingyWhatToNameIt"
+	// WIP, need to be 100% positive on texture format!
 	static function writeTextureHeader(src:TDinoPlanetTextureHeader) : UInt8Array {
 		var buf = Bytes.alloc(32);
-		var dest = new ByteThingyWhatToNameIt(buf,false);
-		throw new Error("texture header write not supported!");
-		return new UInt8Array(0);
+		var dest:ByteThingyWhatToNameIt = new ByteThingyWhatToNameIt(buf, false);
+		var wMSB:Int = src.width & 0xf00;
+		var hMSB:Int = src.height & 0xf00;
+		dest.writeUint8(src.width & 0xff);
+		dest.writeUint8(src.height & 0xff);
+		wMSB <<= 4;
+		var formatByte = src.format | (src.type << 4);
+		dest.writeUint8(formatByte);
+		dest.writeUint8(src.sprX);
+		dest.writeUint8(src.sprY);
+		dest.writeUint8(1); // 0x5 has only ever been 1
+		dest.writeUint16(src.flags, false);
+		dest.writeUint32(src.PTR_gdl, false);
+		dest.writeUint16(src.levels, false);
+		dest.writeUint16(src.unk_0xe, false);
+		dest.writeUint16(src.unk_0x10, false);
+		dest.writeUint16(src.gdlIdx, false);
+		dest.writeUint32(src.PTR_next, false);
+		dest.writeUint16(src.unk_0x18, false);
+		dest.writeUint8(src.unk_0x1a);
+		dest.writeUint8(wMSB | hMSB);
+		dest.writeUint8(src.cms);
+		dest.writeUint8(src.masks);
+		dest.writeUint8(src.cmt);
+		dest.writeUint8(src.maskt);
+		throw new Error("texture header write WIP, final files may not function in-game");
+		dest.position = 0;
+		return dest.readUint8Array(32);
 	}
 
 	// still need swizzle, unless this works same in reverse?
@@ -267,26 +308,18 @@ class Texture
 	static function writePalette() {}
 
 	// all need equivalent write functions
-	// 'packed' versions might be
-	// I8, I4, with alpha set as 'intensity'
-	// texture64 shows this as an option, but
-	// docu doesn't mention it[?]
-	// still need to verify this against some sample textures
-	// it's easy, i'm just lazy :P
+	// IA8P and IA4P are almost certainly I8,I4 with alpha = intensity
+	// so how does DP know to do this?
 
-	// assuming this works [should!]
-	// IA4P() > delete, add I4() with Bool:useAlpha argument
-	// IA8() > delete, add I8() with Bool:useAlpha argument
-	//     or Int/Enum:alphaMode [0:full,1:intensity,2:binary] , this order makes mose sense[?]
-	//     [I8 in fact seems to be used at least once, splash screen BG]
-	// IA8T() > rename [thus, replace existing] IA8()
-	// all others remain as-is
 	// argument Bool:forceOpacity? 4 textures ignore their alpha
 	// this could also be implemented in the viewer/editor
+	// surely something in the header specifies to do this?
 
-	// since some textures are not swizzled, all decoders/encoders
+	// since some textures are not swizzled*, all decoders/encoders
 	// need a Bool:noSwizzle argument to override the swizzling
 	// given the current implementation, get/setBits() might also need to do this
+	// DKR decomp identifies this as "interlace" , 
+	//   which is probably the correct technical term
 
 	static function readTextureIA4P(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
 		// should i just add the header to the texture type? it might be something
@@ -810,7 +843,6 @@ class Texture
 			pixels[base + 2] = b;
 			pixels[base + 3] = a;
 		}
-		//Syntax.code("console.log({0})",pixels);
 		return {
 			format : format,
 			palette : new UInt8Array(4),
@@ -819,8 +851,56 @@ class Texture
 			pixels : pixels
 		}
 	}
+	
+	public static function convertToImage(texture:TDinoPlanetTexture,forceOpacity:Bool) : ImageData {
+		var img:ImageData = new ImageData(texture.width,texture.height);
+		var size:Int = texture.width * texture.height;
+		var pal:UInt8Array = texture.palette;
+		var f:Int = texture.format;
+		if (f == 7 || f == 8) { // CI formats only
+			/* 
+				it made more sense to create two copies of this loop than do an extra if statement on every iteration
+				does it matter much? probably not
+			*/
+			if (forceOpacity) {
+				for (i in 0...size) {
+					var base:Int = i * 4;
+					var basePal:Int = texture.pixels[i] * 4;
+					img.data[base + 0] = texture.palette[basePal + 0];
+					img.data[base + 1] = texture.palette[basePal + 1];
+					img.data[base + 2] = texture.palette[basePal + 2];
+					img.data[base + 3] = 255;
+				}
+			} else {
+				for (i in 0...size) {
+					var base:Int = i * 4;
+					var basePal:Int = texture.pixels[i] * 4;
+					img.data[base + 0] = texture.palette[basePal + 0];
+					img.data[base + 1] = texture.palette[basePal + 1];
+					img.data[base + 2] = texture.palette[basePal + 2];
+					img.data[base + 3] = texture.palette[basePal + 3];
+				}
+			}
+		} else if (f == 0 || f == 1 || f == 2 || f == 3 || f == 4 || f == 5 || f == 6) { // other formats are raw pixels
+			if (forceOpacity) {
+				for (i in 0...size) {
+					var base:Int = i * 4;
+					img.data[base + 0] = texture.pixels[base + 0];
+					img.data[base + 1] = texture.pixels[base + 1];
+					img.data[base + 2] = texture.pixels[base + 2];
+					img.data[base + 3] = 255;
+				}
+			} else {
+				for (i in 0...size) {
+					var base:Int = i * 4;
+					img.data[base + 0] = texture.pixels[base + 0];
+					img.data[base + 1] = texture.pixels[base + 1];
+					img.data[base + 2] = texture.pixels[base + 2];
+					img.data[base + 3] = texture.pixels[base + 3];
+				}
+			}
+		}
+		return img;
+	}
 
-	// these should probably not be handled by the [en/de]coder at all
-	//function drawTexture(){}
-	//function drawPalette(){}
 }
