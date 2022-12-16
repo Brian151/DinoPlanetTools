@@ -4,6 +4,7 @@ import framework.EditorState;
 import framework.editor.FileExporter;
 import haxe.io.Bytes;
 import framework.codec.Texture;
+import haxe.io.UInt8Array;
 import js.html.Blob;
 import js.html.Element;
 import js.html.InputElement;
@@ -16,7 +17,8 @@ import js.Browser.document;
 import js.lib.Uint8Array;
 import haxe.Json;
 import Graphics;
-import ui.UI ;
+import ui.UI;
+import framework.dev.ManifestConverter;
 
 // all unused (now) but keep for reference
 /*import haxe.io.UInt8Array;
@@ -54,7 +56,7 @@ class Main
 	load from folders [almost certainly requires native build !]
 	
 	edit textures
-		import / export textures
+		import textures
 		load individual textures
 		UI redesign
 			editor UI
@@ -106,18 +108,19 @@ class Main
 		
 		UI.initMenu(gfx, menu, name_txt, tags_txt, path_txt);
 		
-		ROM.currTex = 713;
+		ROM.currTex = 687;
 		// temp!
 		// FileExporter.exportZip(ROM,1);
-		/*var binfile = ROM.bin;
+		var binfile = ROM.bin;
 		var bindat = ROM.bin.data;
-		var curr = ROM.manifest.resources[713];
+		var curr = ROM.manifest.resources[ROM.currTex];
 		var tOVR = curr.resInfo.formatOVR;
-		var texInfo0 = binfile.getItem(713);
+		var texInfo0 = binfile.getItem(ROM.currTex);
 		var texInfo = texInfo0.resources[0];
 		bindat.position = texInfo.ofs;
-		var tex = Texture.decodeTexture(bindat, texInfo.size);
-		FileExporter.exportPNG(tex, tOVR.forceOpacity, "aFileName");*/
+		var tex = Texture.decodeTexture(bindat, texInfo.size,tOVR);
+		// FileExporter.exportPNG(tex, tOVR.forceOpacity, "aFileName");
+		// ManifestConverter.update2();
 		
 		UI.displayTextureInfo(ROM.currTex);
 	}
@@ -164,5 +167,4 @@ class Main
 		var blob:Blob = new Blob([Json.stringify(ROM.manifest)], {type: "text/plain;charset=utf-8"});
 		Syntax.code("saveAs({0}, \"manifest.json\")", blob);
 	}
-	
 }

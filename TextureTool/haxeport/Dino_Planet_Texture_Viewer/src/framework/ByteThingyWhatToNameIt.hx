@@ -128,6 +128,12 @@ class ByteThingyWhatToNameIt
 		return out;
 	}
 	
+	public function readBytes(length:Int) {
+		var out = Bytes.alloc(length);
+		out.blit(0, tgt, position, length);
+		return out;
+	}
+	
 	// writing later...
 	public function writeUint8(v:Int) {
 		tgt.set(position, v & 255);

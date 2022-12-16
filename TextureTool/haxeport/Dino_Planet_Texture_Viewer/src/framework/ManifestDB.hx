@@ -31,7 +31,7 @@ typedef TDPManifestTextureInfoNew = {
 	// MD5 hash of [decompressed] file/data, identify duplicate/altered files
 	hash : String, 
 	// is there a reason to keep this? headers concievably could change
-	format : Int, 
+	format : String, 
 	width : Int,
 	height : Int,
 	formatOVR : TTextureFormatOverride

@@ -1,12 +1,12 @@
 package framework.codec;
 import haxe.io.Bytes;
-import js.lib.Error;
 import haxe.io.UInt16Array;
 import haxe.io.UInt8Array;
 import framework.ByteThingyWhatToNameIt;
+import js.html.ImageData;
 // keep for testing purposes [for now]
 import js.Syntax;
-import js.html.ImageData;
+
 
 // thanks to DKR decomp team for identifying:  sprX,sprY,type
 typedef TDinoPlanetTextureHeader = {
@@ -43,9 +43,6 @@ typedef TDinoPlanetTexture = {
 }
 
 typedef TTextureFormatOverride = {
-	format : Int,
-	width : Int, // width and height no longer needed
-	height : Int,
 	noSwizzle : Bool,
 	forceOpacity : Bool,
 	id : Int
@@ -56,10 +53,9 @@ class Texture
 {
 	// TODO:
 	// TIDY UP!
-	// re-factor decoders
-	// re-implement debug funcs???
 	// compressor
 	// encoders
+	// unknowns
 	
 	// thx to DKR decomp for identifying all formats
 	static var formats:Array<String> = [
@@ -96,7 +92,7 @@ class Texture
 
 	// some textures in TEX0 don't decode properly on their own
 	// temp[?] solution is an override settings object
-	// that will be stored in the manifest entries
+	// stored in the manifest entries
 	public static function decodeTexture(src:ByteThingyWhatToNameIt,sizeComp:Int,?hack:TTextureFormatOverride) : TDinoPlanetTexture {
 		var raw = decompressTexture(src,sizeComp);
 		var header = readTextureHeader(raw);
@@ -104,11 +100,7 @@ class Texture
 		var forceOpacity : Bool = false;
 		
 		if (hack != null) {
-			if (hack.format > -1) {
-				header.format = hack.format;
-			}
 			noSwizzle = hack.noSwizzle;
-			forceOpacity = hack.forceOpacity;
 		}
 
 		switch header.format {
@@ -117,32 +109,30 @@ class Texture
 		case 1 :
 			return readTextureRGBA16(raw,header,noSwizzle);
 		case 2 :
-			return readTextureIA8(raw,header,noSwizzle);
+			return readTextureI8(raw,header,noSwizzle);
 		case 3 :
-			return readTextureIA4P(raw,header,noSwizzle);
+			return readTextureI4(raw,header,noSwizzle);
 		case 4 :
 			return readTextureIA16(raw,header,noSwizzle);
 		case 5 :
-			return readTextureIA8T(raw,header,noSwizzle);
+			return readTextureIA8(raw,header,noSwizzle);
 		case 6 :
 			return readTextureIA4(raw,header,noSwizzle);
 		case 7 :
 			return readTextureCI4(raw, header, noSwizzle);
-		case 16 : 
-			return readTextureI8(raw, header, noSwizzle);
+		case 8 :
+			return readTextureCI8(raw, header, noSwizzle); // no observed DP textures use this format
 		default :
-			throw new Error("unknown texture format! (" + header.format + ")");
+			throw "unknown texture format! (" + header.format + ")";
 		}
 	}
 
-	public static function encodeTexture() : UInt8Array {
+	public static function encodeTexture(tex:TDinoPlanetTexture,head:TDinoPlanetTextureHeader) : UInt8Array {
 		// TODO
-		throw new Error("not implemented");
+		throw "not implemented";
+		var headArr = writeTextureHeader(head);
 		return new UInt8Array(0);
 	}
-
-	// debug funcs:
-	// dumpTextureInfo
 
 	// making these public is debatable, however the manifest needs this feature
 	// and it makes little sense to code-dupe it
@@ -161,7 +151,7 @@ class Texture
 	}
 
 	public static function compressTexture(src:UInt8Array) : UInt8Array {
-		throw new Error("compression not implemented");
+		throw "compression not implemented";
 		
 		return new UInt8Array(0);
 	}
@@ -225,7 +215,7 @@ class Texture
 		dest.writeUint8(src.masks);
 		dest.writeUint8(src.cmt);
 		dest.writeUint8(src.maskt);
-		throw new Error("texture header write WIP, final files may not function in-game");
+		throw "texture header write WIP, final files may not function in-game";
 		dest.position = 0;
 		return dest.readUint8Array(32);
 	}
@@ -307,340 +297,24 @@ class Texture
 	// TODO
 	static function writePalette() {}
 
-	// all need equivalent write functions
-	// IA8P and IA4P are almost certainly I8,I4 with alpha = intensity
-	// so how does DP know to do this?
+	
+	// all pixel formats need equivalent write functions
+	
+	// [unknowns]
+	
+	// how does DP know about alpha=intensity?
+	// most Intensity textures use this...
 
-	// argument Bool:forceOpacity? 4 textures ignore their alpha
+	// 4 textures ignore their alpha
 	// this could also be implemented in the viewer/editor
 	// surely something in the header specifies to do this?
 
-	// since some textures are not swizzled*, all decoders/encoders
-	// need a Bool:noSwizzle argument to override the swizzling
-	// given the current implementation, get/setBits() might also need to do this
-	// DKR decomp identifies this as "interlace" , 
+	// some textures are not swizzled*, all decoders/encoders
+	// *DKR decomp identifies this as "interlace" , 
 	//   which is probably the correct technical term
-
-	static function readTextureIA4P(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
-		// should i just add the header to the texture type? it might be something
-		// that needs to be processed outside of the codec
-		var width : Int = header.width;
-		var height : Int = header.height;
-		var format : Int = header.format;
-		var imageSize : Int = width * height;
-		// we're outputting RGBA32 for now
-		// maybe we shouldn't be doing that?
-		// essentilly just creating an ImageData by another name
-		// and the editor needs to account for format-specific limitations
-		var pixels : UInt8Array = new UInt8Array(imageSize * 4);
-		src.position = 0x20;
-		var bitsLeft : Int = 64;
-		var currentRow : Int = 0;
-		var bitSrc : Array<Int> = deSwizzleBits64(src, currentRow);
-		// in hindsight, why in the HELL am i doing it like this?!
-		var bits1 : Int = bitSrc[0];
-		var bits2 : Int = bitSrc[1];
-		for (i in 0...imageSize)
-		{
-			if (i > 0 && (i % width) == 0) {
-				if (!noSwizzle) {
-					currentRow++;
-				}
-			}
-			if (bitsLeft <= 0) {
-				bitSrc = deSwizzleBits64(src, currentRow);
-				// in hindsight, why in the HELL am i doing it like this?!
-				bits1 = bitSrc[0];
-				bits2 = bitSrc[1];
-				bitsLeft = 64;
-			}
-			var pix : Int = 0;
-			var r : Int = 0;
-			var g : Int = 0;
-			var b : Int = 0;
-			var a : Int = 0;
-			// U64 in JS not exactly supported
-			if (bitsLeft <= 32) {
-				pix = (bits2 & 0xe0000000) >>> 28;
-				a = (bits2 & 0xf0000000) >>> 28;
-				bits2 <<= 4;
-				pix >>>= 1;
-				r = CLUT4BIT[pix * 2];
-				g = CLUT4BIT[pix * 2];
-				b = CLUT4BIT[pix * 2];
-				bitsLeft -= 4;
-			}
-			else {
-				pix = (bits1 & 0xe0000000) >>> 28;
-				a = (bits1 & 0xf0000000) >>> 28;
-				bits1 <<= 4;
-				pix >>>= 1;
-				r = CLUT4BIT[pix * 2];
-				g = CLUT4BIT[pix * 2];
-				b = CLUT4BIT[pix * 2];
-				bitsLeft -= 4;
-			}
-			var base : Int = i * 4;
-			pixels[base + 0] = r;
-			pixels[base + 1] = g;
-			pixels[base + 2] = b;
-			pixels[base + 3] = CLUT4BIT[a];
-		}
-		return {
-			format : format,
-			palette : new UInt8Array(4),
-			width : width,
-			height : height,
-			pixels : pixels
-		}
-	}
+	// DKR decomp is able to determine this property being enabled in flags 0x400,
+	// how does DP do it?
 	
-	static function readTextureIA16(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
-		var width : Int = header.width;
-		var height : Int = header.height;
-		var format : Int = header.format;
-		var imageSize = width * height;
-		var pixels : UInt8Array = new UInt8Array(imageSize * 4);
-		src.position = 0x20;
-		var bitsLeft : Int = 64;
-		var currentRow : Int = 0;
-		var bitSrc : Array<Int> = deSwizzleBits64(src,currentRow);
-		var bits1 : Int = bitSrc[0];
-		var bits2 : Int = bitSrc[1];
-		for (j in 0...imageSize) {
-			if (j > 0 && ((j % width) != 0)) {
-				if (!noSwizzle) {
-					currentRow++;
-				}
-			}
-			if (bitsLeft <= 0)
-			{
-				bitSrc = deSwizzleBits64(src,currentRow);
-				bits1 = bitSrc[0];
-				bits2 = bitSrc[1];
-				bitsLeft = 64;
-			}
-			var pix : Int = 0;
-			var a : Int = 0;
-			if (bitsLeft <= 32) {
-				pix = (bits2 & 0xff000000) >>> 24;
-				a = (bits2 & 0x00ff0000) >>> 16;
-				bits2 <<= 16;
-				bitsLeft -= 16;
-			}
-			else {
-				pix = (bits1 & 0xff000000) >>> 24;
-				a = (bits1 & 0x00ff0000) >>> 16;
-				bits1 <<= 16;
-				bitsLeft -= 16;
-			}
-			var base : Int = j * 4;
-			pixels[base + 0] = pix;
-			pixels[base + 1] = pix;
-			pixels[base + 2] = pix;
-			pixels[base + 3] = a;
-		}
-		return {
-			format : format,
-			palette : new UInt8Array(4),
-			width : width,
-			height : height,
-			pixels : pixels
-		}
-	}
-
-	static function readTextureIA8(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
-		var width : Int = header.width;
-		var height : Int = header.height;
-		var format = header.format;
-		var imageSize : Int = width * height;
-		var pixels : UInt8Array = new UInt8Array(imageSize * 4);
-		src.position = 0x20;
-		var bitsleft : Int = 64;
-		var currentRow : Int = 0;
-		var bitSrc : Array<Int> = deSwizzleBits64(src,currentRow);
-		var bits1 : Int = bitSrc[0];
-		var bits2 : Int = bitSrc[1];
-		for (j in 0...imageSize) {
-			if (j > 0 && ((j % width) != 0)) {
-				if (!noSwizzle) {
-					currentRow++;
-				}
-			}
-			if (bitsleft <= 0) {
-				bitSrc = deSwizzleBits64(src,currentRow);
-				bits1 = bitSrc[0];
-				bits2 = bitSrc[1];
-				bitsleft = 64;
-			}
-			var pix : Int = 0;
-			var r : Int = 0;
-			var g : Int = 0;
-			var b : Int = 0;
-			var a : Int = 0;
-			if (bitsleft <= 32)
-			{
-				pix = (bits2 & 0xf0000000) >>> 28;
-				a = (bits2 & 0xff000000) >>> 24;
-				bits2 <<= 8;
-				r = CLUT4BIT[pix];
-				g = CLUT4BIT[pix];
-				b = CLUT4BIT[pix];
-				bitsleft -= 8;
-			}
-			else
-			{
-				pix = (bits1 & 0xf0000000) >>> 28;
-				a = (bits1 & 0xff000000) >>> 24;
-				bits1 <<= 8;
-				r = CLUT4BIT[pix];
-				g = CLUT4BIT[pix];
-				b = CLUT4BIT[pix];
-				bitsleft -= 8;
-			}
-			var base : Int = j * 4;
-			pixels[base + 0] = r;
-			pixels[base + 1] = g;
-			pixels[base + 2] = b;
-			pixels[base + 3] = a;
-		}
-		return {
-			format : format,
-			palette : new UInt8Array(4),
-			width : width,
-			height : height,
-			pixels : pixels
-		}
-	}
-
-	static function readTextureIA4(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
-		var width : Int = header.width;
-		var height : Int = header.height;
-		var format : Int = header.format;
-		var imageSize : Int = width * height;
-		var pixels : UInt8Array = new UInt8Array(imageSize * 4);
-		src.position = 0x20;
-		var bitsLeft : Int = 64;
-		var currentRow : Int = 0;
-		var bitSrc : Array<Int> = deSwizzleBits64(src,currentRow);
-		var bits1 : Int = bitSrc[0];
-		var bits2 : Int = bitSrc[1];
-		for (j in 0...imageSize) {
-			if (j > 0 && ((j % width) != 0)) {
-				if (!noSwizzle) {
-					currentRow++;
-				}
-			}
-			if (bitsLeft <= 0) {
-				bitSrc = deSwizzleBits64(src,currentRow);
-				bits1 = bitSrc[0];
-				bits2 = bitSrc[1];
-				bitsLeft = 64;
-			}
-			var pix : Int = 0;
-			var r : Int = 0;
-			var g : Int = 0;
-			var b : Int = 0;
-			var a : Int = 0;
-			if (bitsLeft <= 32) {
-				pix = (bits2 & 0xf0000000) >>> 28;
-				a = pix & 0x01;
-				pix >>>= 1;
-				bits2 <<= 4;
-				r = CLUT4BIT[pix * 2];
-				g = CLUT4BIT[pix * 2];
-				b = CLUT4BIT[pix * 2];
-				bitsLeft -= 4;
-			}
-			else
-			{
-				pix = (bits1 & 0xf0000000) >>> 28;
-				a = pix & 0x01;
-				pix >>>= 1;
-				bits1 <<= 4;
-				r = CLUT4BIT[pix * 2];
-				g = CLUT4BIT[pix * 2];
-				b = CLUT4BIT[pix * 2];
-				bitsLeft -= 4;
-			}
-			var base : Int = j * 4;
-			pixels[base + 0] = r;
-			pixels[base + 1] = g;
-			pixels[base + 2] = b;
-			pixels[base + 3] = a * 255;
-		}
-		return {
-			format : format,
-			palette : new UInt8Array(4),
-			width : width,
-			height : height,
-			pixels : pixels
-		}
-	}
-
-	static function readTextureIA8T(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
-		var width  : Int= header.width;
-		var height : Int = header.height;
-		var format : Int = header.format;
-		var imageSize : Int = width * height;
-		var pixels : UInt8Array = new UInt8Array(imageSize * 4);
-		src.position = 0x20;
-		var bitsLeft : Int = 64;
-		var currentRow : Int = 0;
-		var bitSrc : Array<Int> = deSwizzleBits64(src,currentRow);
-		var bits1 : Int = bitSrc[0];
-		var bits2 : Int = bitSrc[1];
-		for (j in 0...imageSize) {
-			if (j > 0 && ((j % width) != 0)) {
-				if (!noSwizzle) {
-					currentRow++;
-				}
-			}
-			if (bitsLeft <= 0) {
-				bitSrc = deSwizzleBits64(src,currentRow);
-				bits1 = bitSrc[0];
-				bits2 = bitSrc[1];
-				bitsLeft = 64;
-			}
-			var pix : Int = 0;
-			var r : Int= 0;
-			var g : Int = 0;
-			var b : Int = 0;
-			var a : Int = 0;
-			if (bitsLeft <= 32) {
-				pix = (bits2 & 0xf0000000) >>> 28;
-				a = (bits2 & 0x0f000000) >>> 24;
-				bits2 <<= 8;
-				r = CLUT4BIT[pix];
-				g = CLUT4BIT[pix];
-				b = CLUT4BIT[pix];
-				bitsLeft -= 8;
-			}
-			else
-			{
-				pix = (bits1 & 0xf0000000) >>> 28;
-				a = (bits1 & 0x0f000000) >>> 24;
-				bits1 <<= 8;
-				r = CLUT4BIT[pix];
-				g = CLUT4BIT[pix];
-				b = CLUT4BIT[pix];
-				bitsLeft -= 8;
-			}
-			var base : Int = j * 4;
-			pixels[base + 0] = r;
-			pixels[base + 1] = g;
-			pixels[base + 2] = b;
-			pixels[base + 3] = CLUT4BIT[a];
-		}
-		return {
-			format : format,
-			palette : new UInt8Array(4),
-			width : width,
-			height : height,
-			pixels : pixels
-		}
-	}
-
 	static function readTextureRGBA32(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
 		var width : Int = header.width;
 		var height : Int = header.height;
@@ -741,6 +415,276 @@ class Texture
 		}
 	}
 
+	static function readTextureI8(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
+		var width : Int = header.width;
+		var height : Int = header.height;
+		var format = header.format;
+		var imageSize : Int = width * height;
+		var pixels : UInt8Array = new UInt8Array(imageSize);
+		src.position = 0x20;
+		var bitsleft : Int = 64;
+		var currentRow : Int = 0;
+		var bitSrc : Array<Int> = deSwizzleBits64(src,currentRow);
+		var bits1 : Int = bitSrc[0];
+		var bits2 : Int = bitSrc[1];
+		for (j in 0...imageSize) {
+			if (j > 0 && ((j % width) != 0)) {
+				if (!noSwizzle) {
+					currentRow++;
+				}
+			}
+			if (bitsleft <= 0) {
+				bitSrc = deSwizzleBits64(src,currentRow);
+				bits1 = bitSrc[0];
+				bits2 = bitSrc[1];
+				bitsleft = 64;
+			}
+			var pix : Int = 0;
+			if (bitsleft <= 32) {
+				pix = (bits2 & 0xff000000) >>> 24;
+				bits2 <<= 8;
+				bitsleft -= 8;
+			}
+			else {
+				pix = (bits1 & 0xff000000) >>> 24;
+				bits1 <<= 8;
+				bitsleft -= 8;
+			}
+			pixels[j] = pix;
+		}
+		return {
+			format : format,
+			palette : new UInt8Array(4),
+			width : width,
+			height : height,
+			pixels : pixels
+		}
+	}
+
+	static function readTextureI4(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
+		// should i just add the header to the texture type? it might be something
+		// that needs to be processed outside of the codec
+		var width : Int = header.width;
+		var height : Int = header.height;
+		var format : Int = header.format;
+		var imageSize : Int = width * height;
+		// we're outputting RGBA32 for now
+		// maybe we shouldn't be doing that?
+		// essentilly just creating an ImageData by another name
+		// and the editor needs to account for format-specific limitations
+		var pixels : UInt8Array = new UInt8Array(imageSize);
+		src.position = 0x20;
+		var bitsLeft : Int = 64;
+		var currentRow : Int = 0;
+		var bitSrc : Array<Int> = deSwizzleBits64(src, currentRow);
+		// in hindsight, why in the HELL am i doing it like this?!
+		var bits1 : Int = bitSrc[0];
+		var bits2 : Int = bitSrc[1];
+		for (i in 0...imageSize)
+		{
+			if (i > 0 && (i % width) == 0) {
+				if (!noSwizzle) {
+					currentRow++;
+				}
+			}
+			if (bitsLeft <= 0) {
+				bitSrc = deSwizzleBits64(src, currentRow);
+				// in hindsight, why in the HELL am i doing it like this?!
+				bits1 = bitSrc[0];
+				bits2 = bitSrc[1];
+				bitsLeft = 64;
+			}
+			var pix : Int = 0;
+			// U64 in JS not exactly supported
+			if (bitsLeft <= 32) {
+				pix = (bits2 & 0xf0000000) >>> 28;
+				bits2 <<= 4;
+				bitsLeft -= 4;
+			}
+			else {
+				pix = (bits1 & 0xf0000000) >>> 28;
+				bits1 <<= 4;
+				bitsLeft -= 4;
+			}
+			pixels[i] = CLUT4BIT[pix];
+		}
+		return {
+			format : format,
+			palette : new UInt8Array(4),
+			width : width,
+			height : height,
+			pixels : pixels
+		}
+	}
+	
+	static function readTextureIA16(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
+		var width : Int = header.width;
+		var height : Int = header.height;
+		var format : Int = header.format;
+		var imageSize = width * height;
+		var pixels : UInt8Array = new UInt8Array(imageSize * 2);
+		src.position = 0x20;
+		var bitsLeft : Int = 64;
+		var currentRow : Int = 0;
+		var bitSrc : Array<Int> = deSwizzleBits64(src,currentRow);
+		var bits1 : Int = bitSrc[0];
+		var bits2 : Int = bitSrc[1];
+		for (j in 0...imageSize) {
+			if (j > 0 && ((j % width) != 0)) {
+				if (!noSwizzle) {
+					currentRow++;
+				}
+			}
+			if (bitsLeft <= 0)
+			{
+				bitSrc = deSwizzleBits64(src,currentRow);
+				bits1 = bitSrc[0];
+				bits2 = bitSrc[1];
+				bitsLeft = 64;
+			}
+			var pix : Int = 0;
+			var a : Int = 0;
+			if (bitsLeft <= 32) {
+				pix = (bits2 & 0xff000000) >>> 24;
+				a = (bits2 & 0x00ff0000) >>> 16;
+				bits2 <<= 16;
+				bitsLeft -= 16;
+			}
+			else {
+				pix = (bits1 & 0xff000000) >>> 24;
+				a = (bits1 & 0x00ff0000) >>> 16;
+				bits1 <<= 16;
+				bitsLeft -= 16;
+			}
+			var base : Int = j * 2;
+			pixels[base + 0] = pix;
+			pixels[base + 1] = a;
+		}
+		return {
+			format : format,
+			palette : new UInt8Array(4),
+			width : width,
+			height : height,
+			pixels : pixels
+		}
+	}
+
+	static function readTextureIA8(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
+		var width  : Int= header.width;
+		var height : Int = header.height;
+		var format : Int = header.format;
+		var imageSize : Int = width * height;
+		var pixels : UInt8Array = new UInt8Array(imageSize * 2);
+		src.position = 0x20;
+		var bitsLeft : Int = 64;
+		var currentRow : Int = 0;
+		var bitSrc : Array<Int> = deSwizzleBits64(src,currentRow);
+		var bits1 : Int = bitSrc[0];
+		var bits2 : Int = bitSrc[1];
+		for (j in 0...imageSize) {
+			if (j > 0 && ((j % width) != 0)) {
+				if (!noSwizzle) {
+					currentRow++;
+				}
+			}
+			if (bitsLeft <= 0) {
+				bitSrc = deSwizzleBits64(src,currentRow);
+				bits1 = bitSrc[0];
+				bits2 = bitSrc[1];
+				bitsLeft = 64;
+			}
+			var pix : Int = 0;
+			var r : Int= 0;
+			var g : Int = 0;
+			var b : Int = 0;
+			var a : Int = 0;
+			if (bitsLeft <= 32) {
+				pix = (bits2 & 0xf0000000) >>> 28;
+				a = (bits2 & 0x0f000000) >>> 24;
+				bits2 <<= 8;
+				r = CLUT4BIT[pix];
+				bitsLeft -= 8;
+			}
+			else
+			{
+				pix = (bits1 & 0xf0000000) >>> 28;
+				a = (bits1 & 0x0f000000) >>> 24;
+				bits1 <<= 8;
+				r = CLUT4BIT[pix];
+				bitsLeft -= 8;
+			}
+			var base : Int = j * 2;
+			pixels[base + 0] = r;
+			pixels[base + 1] = CLUT4BIT[a];
+		}
+		return {
+			format : format,
+			palette : new UInt8Array(4),
+			width : width,
+			height : height,
+			pixels : pixels
+		}
+	}
+
+	static function readTextureIA4(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
+		var width : Int = header.width;
+		var height : Int = header.height;
+		var format : Int = header.format;
+		var imageSize : Int = width * height;
+		var pixels : UInt8Array = new UInt8Array(imageSize * 4);
+		src.position = 0x20;
+		var bitsLeft : Int = 64;
+		var currentRow : Int = 0;
+		var bitSrc : Array<Int> = deSwizzleBits64(src,currentRow);
+		var bits1 : Int = bitSrc[0];
+		var bits2 : Int = bitSrc[1];
+		for (j in 0...imageSize) {
+			if (j > 0 && ((j % width) != 0)) {
+				if (!noSwizzle) {
+					currentRow++;
+				}
+			}
+			if (bitsLeft <= 0) {
+				bitSrc = deSwizzleBits64(src,currentRow);
+				bits1 = bitSrc[0];
+				bits2 = bitSrc[1];
+				bitsLeft = 64;
+			}
+			var pix : Int = 0;
+			var r : Int = 0;
+			var g : Int = 0;
+			var b : Int = 0;
+			var a : Int = 0;
+			if (bitsLeft <= 32) {
+				pix = (bits2 & 0xf0000000) >>> 28;
+				a = pix & 0x01;
+				pix >>>= 1;
+				bits2 <<= 4;
+				r = CLUT4BIT[pix * 2];
+				bitsLeft -= 4;
+			}
+			else
+			{
+				pix = (bits1 & 0xf0000000) >>> 28;
+				a = pix & 0x01;
+				pix >>>= 1;
+				bits1 <<= 4;
+				r = CLUT4BIT[pix * 2];
+				bitsLeft -= 4;
+			}
+			var base : Int = j * 2;
+			pixels[base + 0] = r;
+			pixels[base + 1] = a * 255;
+		}
+		return {
+			format : format,
+			palette : new UInt8Array(4),
+			width : width,
+			height : height,
+			pixels : pixels
+		}
+	}
+
 	static function readTextureCI4(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
 		var width : Int = header.width;
 		var height : Int = header.height;
@@ -788,13 +732,12 @@ class Texture
 		}
 	}
 	
-	// probably should replace IA8P since it's actually I8 with alpha = intensity
-	static function readTextureI8(src:ByteThingyWhatToNameIt,header:TDinoPlanetTextureHeader,noSwizzle:Bool) : TDinoPlanetTexture {
-		var width  : Int = header.width;
+	static function readTextureCI8(src:ByteThingyWhatToNameIt, header:TDinoPlanetTextureHeader, noSwizzle:Bool) : TDinoPlanetTexture {
+		var width : Int = header.width;
 		var height : Int = header.height;
-		var format : Int = 5; // hax
+		var format : Int = header.format;
 		var imageSize : Int = width * height;
-		var pixels : UInt8Array = new UInt8Array(imageSize * 4);
+		var pixels : UInt8Array = new UInt8Array(imageSize);
 		src.position = 0x20;
 		var bitsLeft : Int = 64;
 		var currentRow : Int = 0;
@@ -813,39 +756,23 @@ class Texture
 				bits2 = bitSrc[1];
 				bitsLeft = 64;
 			}
-			var pix : Int = 0;
-			var r : Int= 0;
-			var g : Int = 0;
-			var b : Int = 0;
-			var a : Int = 0;
+			var pix = 0;
 			if (bitsLeft <= 32) {
-				pix = (bits2 & 0xff000000) >>> 24;
-				a = 255;
+				pix = (bits2 & 0xff000000) >>> 28;
 				bits2 <<= 8;
-				r = pix;
-				g = pix;
-				b = pix;
 				bitsLeft -= 8;
 			}
-			else
-			{
-				pix = (bits1 & 0xff000000) >>> 24;
-				a = 255;
+			else {
+				pix = (bits1 & 0xff000000) >>> 28;
 				bits1 <<= 8;
-				r = pix;
-				g = pix;
-				b = pix;
 				bitsLeft -= 8;
 			}
-			var base : Int = j * 4;
-			pixels[base + 0] = r;
-			pixels[base + 1] = g;
-			pixels[base + 2] = b;
-			pixels[base + 3] = a;
+			pixels[j] = pix;
 		}
+		var palette = readPalette(src,16);
 		return {
 			format : format,
-			palette : new UInt8Array(4),
+			palette : palette,
 			width : width,
 			height : height,
 			pixels : pixels
@@ -866,22 +793,22 @@ class Texture
 				for (i in 0...size) {
 					var base:Int = i * 4;
 					var basePal:Int = texture.pixels[i] * 4;
-					img.data[base + 0] = texture.palette[basePal + 0];
-					img.data[base + 1] = texture.palette[basePal + 1];
-					img.data[base + 2] = texture.palette[basePal + 2];
+					img.data[base + 0] = pal[basePal + 0];
+					img.data[base + 1] = pal[basePal + 1];
+					img.data[base + 2] = pal[basePal + 2];
 					img.data[base + 3] = 255;
 				}
 			} else {
 				for (i in 0...size) {
 					var base:Int = i * 4;
 					var basePal:Int = texture.pixels[i] * 4;
-					img.data[base + 0] = texture.palette[basePal + 0];
-					img.data[base + 1] = texture.palette[basePal + 1];
-					img.data[base + 2] = texture.palette[basePal + 2];
-					img.data[base + 3] = texture.palette[basePal + 3];
+					img.data[base + 0] = pal[basePal + 0];
+					img.data[base + 1] = pal[basePal + 1];
+					img.data[base + 2] = pal[basePal + 2];
+					img.data[base + 3] = pal[basePal + 3];
 				}
 			}
-		} else if (f == 0 || f == 1 || f == 2 || f == 3 || f == 4 || f == 5 || f == 6) { // other formats are raw pixels
+		} else if (f == 0 || f == 1) { // RGBA32, RGBA16
 			if (forceOpacity) {
 				for (i in 0...size) {
 					var base:Int = i * 4;
@@ -897,6 +824,39 @@ class Texture
 					img.data[base + 1] = texture.pixels[base + 1];
 					img.data[base + 2] = texture.pixels[base + 2];
 					img.data[base + 3] = texture.pixels[base + 3];
+				}
+			}
+		} else if (f == 2 || f == 3) { // I4, I8
+			for (i in 0...size) {
+				var p = texture.pixels[i];
+				var base:Int = i * 4;
+				img.data[base + 0] = p;
+				img.data[base + 1] = p;
+				img.data[base + 2] = p;
+				img.data[base + 3] = 255;
+			}
+		} else if (f == 4 || f == 5 || f == 6) { // IA4 , IA8 , IA16
+			if (forceOpacity) {
+				for (i in 0...size) {
+					var base0 = i * 2;
+					var p = texture.pixels[base0];
+					// var pa = texture.pixels[base0 + 1]
+					var base:Int = i * 4;
+					img.data[base + 0] = p;
+					img.data[base + 1] = p;
+					img.data[base + 2] = p;
+					img.data[base + 3] = 255;
+				}
+			} else {
+				for (i in 0...size) {
+					var base0 = i * 2;
+					var p = texture.pixels[base0];
+					var pa = texture.pixels[base0 + 1];
+					var base:Int = i * 4;
+					img.data[base + 0] = p;
+					img.data[base + 1] = p;
+					img.data[base + 2] = p;
+					img.data[base + 3] = pa;
 				}
 			}
 		}

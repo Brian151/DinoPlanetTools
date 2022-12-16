@@ -4,7 +4,12 @@ import framework.EditorState;
 import framework.codec.Texture;
 import framework.codec.BinPack;
 import haxe.crypto.Base64;
+import haxe.io.BytesOutput;
 import haxe.io.UInt8Array;
+import js.Browser;
+import js.html.Blob;
+import lib.haxepngjs.Tools;
+import lib.haxepngjs.Writer;
 import ui.UI;
 import js.Syntax;
 import haxe.Json;
@@ -12,7 +17,8 @@ import js.html.ImageData;
 import js.html.CanvasElement;
 import js.html.CanvasRenderingContext2D;
 import js.Browser.document;
-import format.png.Writer;
+import framework.codec.PngTool;
+import haxe.io.Bytes;
 
 class FileExporter 
 {
@@ -36,7 +42,7 @@ class FileExporter
 					} else if (format == 1) {
 						var texFile = Texture.decodeTexture(bindat, texInfo.size, ovr);
 						var forceOpacity:Bool = ovr.forceOpacity;
-						var pngFile = exportPNGForZip(texFile, forceOpacity);
+						var pngFile = exportPNG(texFile, forceOpacity);
 						Syntax.code("{0}.file({1},{2})", zipfile, tName + "frame_" + j + ".png", pngFile);
 					} else {
 						var texFile = Texture.decompressTexture(bindat, texInfo.size).readUint8Array(texInfo.size);
@@ -54,7 +60,7 @@ class FileExporter
 				} else if (format == 1) {
 					var texFile = Texture.decodeTexture(bindat, texInfo.size, ovr);
 					var forceOpacity:Bool = ovr.forceOpacity;
-					var pngFile = exportPNGForZip(texFile, forceOpacity);
+					var pngFile = exportPNG(texFile, forceOpacity);
 					var fName = tName.split(".")[0];
 					Syntax.code("{0}.file({1},{2})", zipfile, fName + ".png", pngFile);
 				} else {
@@ -68,29 +74,14 @@ class FileExporter
 		Syntax.code("{0}.generateAsync({type:\"blob\",compression:\"DEFLATE\"}).then(function (blob) {saveAs(blob, {1} + \".zip\");})",zipfile,exportName);
 	}
 	
-	// wrong way to do this!!!
-	// need proper PNG encoder
-	// alternatively, JS should have this built-in, it's stupidly obvious to do so
-	public static function exportPNG(t:TDinoPlanetTexture,forceOpacity:Bool,fileName:String) {
-		var cnv:CanvasElement = document.createCanvasElement();
-		cnv.width = t.width;
-		cnv.height = t.height;
-		var ctx:CanvasRenderingContext2D = cnv.getContext("2d");
-		var img = Texture.convertToImage(t,forceOpacity);
-		ctx.putImageData(img, 0, 0);
-		cnv.toBlob(Syntax.code("function (blob) {saveAs(blob,\"{0}.png\");}", fileName));
-	}
-	
-	public static function exportPNGForZip(t:TDinoPlanetTexture,forceOpacity:Bool) : UInt8Array {
-		var cnv:CanvasElement = document.createCanvasElement();
-		cnv.width = t.width;
-		cnv.height = t.height;
-		var ctx:CanvasRenderingContext2D = cnv.getContext("2d");
-		var img = Texture.convertToImage(t,forceOpacity);
-		ctx.putImageData(img, 0, 0);
-		var cut:String = "data:image/png;base64,";
-		var datURL = cnv.toDataURL().substring(cut.length);
-		var datByte = Base64.decode(datURL);
-		return new ByteThingyWhatToNameIt(datByte, false).readUint8Array(datByte.length);
+	public static function exportPNG(t:TDinoPlanetTexture,forceOpacity:Bool,?fileName:String) : UInt8Array {
+		var pngBin:Bytes = PngTool.textureToPNG(t);
+		var pngArr = Util.BytesToU8Array(pngBin);
+		if (fileName != null) {
+			var pngArrBufView = Syntax.code("new DataView({0}.buffer)", pngArr);
+			var pngBlob = new Blob([pngArrBufView]);
+			Syntax.code("saveAs({1},\"{0}.png\")", fileName, pngBlob);
+		}
+		return pngArr;
 	}
 }
