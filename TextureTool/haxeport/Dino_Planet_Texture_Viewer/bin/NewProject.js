@@ -15,13 +15,15 @@ var Graphics = function(cnv) {
 Graphics.__name__ = true;
 Graphics.prototype = {
 	drawTexture: function(x,y,texture,forceOpacity) {
-		this.ctx.fillStyle = "#000000";
-		this.ctx.fillRect(0,0,this.scrn.width,this.scrn.height);
 		var turtle = framework_codec_Texture.convertToImage(texture,forceOpacity);
 		this.drawImageData(turtle,x,y,1);
 		if(texture.format == 7 || texture.format == 8) {
 			this.drawPallete(texture.palette);
 		}
+	}
+	,clearScreen: function() {
+		this.ctx.fillStyle = "#000000";
+		this.ctx.fillRect(0,0,this.scrn.width,this.scrn.height);
 	}
 	,drawImageData: function(iDat,x,y,scale) {
 		var posX = x;
@@ -101,7 +103,7 @@ HxOverrides.now = function() {
 var Main = function() { };
 Main.__name__ = true;
 Main.main = function() {
-	Main.ROM = new framework_EditorState();
+	Main.ROM = new framework_editor_EditorState();
 	Main.ROM.bin = new framework_codec_BinPack();
 	Main.gfx = new Graphics(window.document.getElementById("screen"));
 	window.ROM = Main.ROM;
@@ -121,14 +123,12 @@ Main.onFileLoaded = function() {
 	}
 	ui_UI.initMenu(Main.gfx,Main.menu,Main.name_txt,Main.tags_txt,Main.path_txt);
 	Main.ROM.currTex = 687;
-	var binfile = Main.ROM.bin;
-	var bindat = Main.ROM.bin.data;
 	var curr = Main.ROM.manifest.resources[Main.ROM.currTex];
 	var tOVR = curr.resInfo.formatOVR;
-	var texInfo0 = binfile.getItem(Main.ROM.currTex);
-	var texInfo = texInfo0.resources[0];
-	bindat.position = texInfo.ofs;
-	var tex = framework_codec_Texture.decodeTexture(bindat,texInfo.size,tOVR);
+	var binfile = Main.ROM.bin;
+	var texDat = binfile.getFile(Main.ROM.currTex)[0];
+	var texDat2 = lib_Rarezip.decompress(texDat);
+	var tex = framework_codec_Texture.decodeTexture(texDat2,0,tOVR);
 	ui_UI.displayTextureInfo(Main.ROM.currTex);
 };
 Main.loadFile = function() {
@@ -172,6 +172,25 @@ Main.exportManifest = function() {
 Math.__name__ = true;
 var Reflect = function() { };
 Reflect.__name__ = true;
+Reflect.getProperty = function(o,field) {
+	var tmp;
+	if(o == null) {
+		return null;
+	} else {
+		var tmp1;
+		if(o.__properties__) {
+			tmp = o.__properties__["get_" + field];
+			tmp1 = tmp;
+		} else {
+			tmp1 = false;
+		}
+		if(tmp1) {
+			return o[tmp]();
+		} else {
+			return o[field];
+		}
+	}
+};
 Reflect.deleteField = function(o,field) {
 	if(!Object.prototype.hasOwnProperty.call(o,field)) {
 		return false;
@@ -261,7 +280,10 @@ var framework_ByteThingyWhatToNameIt = function(src,endian) {
 };
 framework_ByteThingyWhatToNameIt.__name__ = true;
 framework_ByteThingyWhatToNameIt.prototype = {
-	readUint8: function() {
+	get_length: function() {
+		return this.tgt.length;
+	}
+	,readUint8: function() {
 		var out = this.tgt.b[this.position];
 		this.position++;
 		return out;
@@ -445,11 +467,8 @@ framework_ByteThingyWhatToNameIt.prototype = {
 		}
 		return compressed;
 	}
+	,__properties__: {get_length:"get_length"}
 };
-var framework_EditorState = function() {
-	this.currTex = 0;
-};
-framework_EditorState.__name__ = true;
 var framework_ManifestDB = function() { };
 framework_ManifestDB.__name__ = true;
 var framework_codec_BinPack = function() {
@@ -487,6 +506,19 @@ framework_codec_BinPack.prototype = {
 				var sizeComp = ofs2 - ofs1;
 				out.resources.push({ ofs : ofs1 + realOfs, size : sizeComp});
 			}
+		}
+		return out;
+	}
+	,getFile: function(ord) {
+		var datEntry = this.getItem(ord);
+		var out = [];
+		var _g = 0;
+		var _g1 = datEntry.resCount;
+		while(_g < _g1) {
+			var i = _g++;
+			var curr = datEntry.resources[i];
+			this.data.position = curr.ofs;
+			out.push(this.data.readByteThingy(curr.size,false));
 		}
 		return out;
 	}
@@ -673,7 +705,12 @@ framework_codec_PngTool.PNGToTexture = function(src) {
 var framework_codec_Texture = function() { };
 framework_codec_Texture.__name__ = true;
 framework_codec_Texture.decodeTexture = function(src,sizeComp,hack) {
-	var raw = framework_codec_Texture.decompressTexture(src,sizeComp);
+	var raw = null;
+	if(sizeComp > 0) {
+		raw = framework_codec_Texture.decompressTexture(src,sizeComp);
+	} else {
+		raw = src;
+	}
 	var header = framework_codec_Texture.readTextureHeader(raw);
 	var noSwizzle = false;
 	var forceOpacity = false;
@@ -707,13 +744,8 @@ framework_codec_Texture.encodeTexture = function(tex,head) {
 	throw haxe_Exception.thrown("not implemented");
 };
 framework_codec_Texture.decompressTexture = function(src,sizeComp) {
-	src.position += 5;
-	var decompressed = src.inflate(src.readUint8Array(sizeComp - 5),false);
-	var buf = new haxe_io_Bytes(new ArrayBuffer(decompressed.length));
-	var out = new framework_ByteThingyWhatToNameIt(buf,false);
-	out.writeUint8Array(decompressed);
-	out.position = 0;
-	return out;
+	var decompressed = lib_Rarezip.decompress(src);
+	return decompressed;
 };
 framework_codec_Texture.compressTexture = function(src) {
 	throw haxe_Exception.thrown("compression not implemented");
@@ -1351,8 +1383,8 @@ framework_dev_ManifestConverter.update2 = function() {
 	while(_g < _g1) {
 		var i = _g++;
 		var res = mf.resources[i].resInfo;
-		var w = res.formatOVR.width;
-		var h = res.formatOVR.height;
+		var w = Reflect.getProperty(res.formatOVR,"width");
+		var h = Reflect.getProperty(res.formatOVR,"height");
 		Reflect.deleteField(res.formatOVR,"format");
 		if(w > 0) {
 			res.width = w;
@@ -1375,6 +1407,10 @@ framework_dev_ManifestConverter.update2 = function() {
 	}
 	Main.exportManifest();
 };
+var framework_editor_EditorState = function() {
+	this.currTex = 0;
+};
+framework_editor_EditorState.__name__ = true;
 var framework_editor_FileExporter = function() { };
 framework_editor_FileExporter.__name__ = true;
 framework_editor_FileExporter.exportZip = function(src,format) {
@@ -1390,6 +1426,7 @@ framework_editor_FileExporter.exportZip = function(src,format) {
 		var ovr = curr.resInfo.formatOVR;
 		var tName = curr.path;
 		var texInfo0 = binfile.getItem(i);
+		var texData = binfile.getFile(i);
 		if(curr.resInfo.frames.length > 0) {
 			var _g2 = 0;
 			var _g3 = curr.resInfo.frames.length;
@@ -1397,33 +1434,33 @@ framework_editor_FileExporter.exportZip = function(src,format) {
 				var j = _g2++;
 				var texInfo = texInfo0.resources[j];
 				if(format == 0) {
-					var texFile = framework_codec_Texture.decompressTexture(bindat,texInfo.size).readUint8Array(texInfo.size);
-					zipfile.file((tName + "frame_" + j + ".dptf"),texFile);
+					var texFile = lib_Rarezip.decompress(texData[j]);
+					zipfile.file((tName + "frame_" + j + ".dptf"),texFile.readUint8Array(texFile.get_length()));
 				} else if(format == 1) {
-					var texFile1 = framework_codec_Texture.decodeTexture(bindat,texInfo.size,ovr);
+					var texFile1 = framework_codec_Texture.decodeTexture(texData[j],texData[j].get_length(),ovr);
 					var forceOpacity = ovr.forceOpacity;
 					var pngFile = framework_editor_FileExporter.exportPNG(texFile1,forceOpacity);
 					zipfile.file((tName + "frame_" + j + ".png"),pngFile);
 				} else {
-					var texFile2 = framework_codec_Texture.decompressTexture(bindat,texInfo.size).readUint8Array(texInfo.size);
-					zipfile.file((tName + "frame_" + j + ".dptf"),texFile2);
+					var texFile2 = lib_Rarezip.decompress(texData[j]);
+					zipfile.file((tName + "frame_" + j + ".dptf"),texFile2.readUint8Array(texFile2.get_length()));
 				}
 			}
 		} else {
 			var texInfo1 = texInfo0.resources[0];
 			bindat.position = texInfo1.ofs;
 			if(format == 0) {
-				var texFile3 = framework_codec_Texture.decompressTexture(bindat,texInfo1.size).readUint8Array(texInfo1.size);
-				zipfile.file(tName,texFile3);
+				var texFile3 = lib_Rarezip.decompress(texData[0]);
+				zipfile.file(tName,texFile3.readUint8Array(texFile3.get_length()));
 			} else if(format == 1) {
-				var texFile4 = framework_codec_Texture.decodeTexture(bindat,texInfo1.size,ovr);
+				var texFile4 = framework_codec_Texture.decodeTexture(texData[0],texData[0].tgt.length,ovr);
 				var forceOpacity1 = ovr.forceOpacity;
 				var pngFile1 = framework_editor_FileExporter.exportPNG(texFile4,forceOpacity1);
 				var fName = tName.split(".")[0];
 				zipfile.file((fName + ".png"),pngFile1);
 			} else {
-				var texFile5 = framework_codec_Texture.decompressTexture(bindat,texInfo1.size).readUint8Array(texInfo1.size);
-				zipfile.file(tName,texFile5);
+				var texFile5 = lib_Rarezip.decompress(texData[0]);
+				zipfile.file(tName,texFile5.readUint8Array(texFile5.get_length()));
 			}
 		}
 	}
@@ -1488,6 +1525,7 @@ haxe_Exception.prototype = $extend(Error.prototype,{
 	,get_native: function() {
 		return this.__nativeException;
 	}
+	,__properties__: {get_native:"get_native",get_message:"get_message"}
 });
 var haxe_ValueException = function(value,previous,native) {
 	haxe_Exception.call(this,String(value),previous,native);
@@ -1500,6 +1538,122 @@ haxe_ValueException.prototype = $extend(haxe_Exception.prototype,{
 		return this.value;
 	}
 });
+var haxe_ds_List = function() {
+	this.length = 0;
+};
+haxe_ds_List.__name__ = true;
+haxe_ds_List.prototype = {
+	add: function(item) {
+		var x = new haxe_ds__$List_ListNode(item,null);
+		if(this.h == null) {
+			this.h = x;
+		} else {
+			this.q.next = x;
+		}
+		this.q = x;
+		this.length++;
+	}
+};
+var haxe_ds__$List_ListNode = function(item,next) {
+	this.item = item;
+	this.next = next;
+};
+haxe_ds__$List_ListNode.__name__ = true;
+var haxe_exceptions_PosException = function(message,previous,pos) {
+	haxe_Exception.call(this,message,previous);
+	if(pos == null) {
+		this.posInfos = { fileName : "(unknown)", lineNumber : 0, className : "(unknown)", methodName : "(unknown)"};
+	} else {
+		this.posInfos = pos;
+	}
+};
+haxe_exceptions_PosException.__name__ = true;
+haxe_exceptions_PosException.__super__ = haxe_Exception;
+haxe_exceptions_PosException.prototype = $extend(haxe_Exception.prototype,{
+	toString: function() {
+		return "" + haxe_Exception.prototype.toString.call(this) + " in " + this.posInfos.className + "." + this.posInfos.methodName + " at " + this.posInfos.fileName + ":" + this.posInfos.lineNumber;
+	}
+});
+var haxe_exceptions_NotImplementedException = function(message,previous,pos) {
+	if(message == null) {
+		message = "Not implemented";
+	}
+	haxe_exceptions_PosException.call(this,message,previous,pos);
+};
+haxe_exceptions_NotImplementedException.__name__ = true;
+haxe_exceptions_NotImplementedException.__super__ = haxe_exceptions_PosException;
+haxe_exceptions_NotImplementedException.prototype = $extend(haxe_exceptions_PosException.prototype,{
+});
+var haxe_io_Input = function() { };
+haxe_io_Input.__name__ = true;
+haxe_io_Input.prototype = {
+	readByte: function() {
+		throw new haxe_exceptions_NotImplementedException(null,null,{ fileName : "haxe/io/Input.hx", lineNumber : 53, className : "haxe.io.Input", methodName : "readByte"});
+	}
+	,readBytes: function(s,pos,len) {
+		var k = len;
+		var b = s.b;
+		if(pos < 0 || len < 0 || pos + len > s.length) {
+			throw haxe_Exception.thrown(haxe_io_Error.OutsideBounds);
+		}
+		try {
+			while(k > 0) {
+				b[pos] = this.readByte();
+				++pos;
+				--k;
+			}
+		} catch( _g ) {
+			if(!((haxe_Exception.caught(_g).unwrap()) instanceof haxe_io_Eof)) {
+				throw _g;
+			}
+		}
+		return len - k;
+	}
+	,set_bigEndian: function(b) {
+		this.bigEndian = b;
+		return b;
+	}
+	,readFullBytes: function(s,pos,len) {
+		while(len > 0) {
+			var k = this.readBytes(s,pos,len);
+			if(k == 0) {
+				throw haxe_Exception.thrown(haxe_io_Error.Blocked);
+			}
+			pos += k;
+			len -= k;
+		}
+	}
+	,read: function(nbytes) {
+		var s = new haxe_io_Bytes(new ArrayBuffer(nbytes));
+		var p = 0;
+		while(nbytes > 0) {
+			var k = this.readBytes(s,p,nbytes);
+			if(k == 0) {
+				throw haxe_Exception.thrown(haxe_io_Error.Blocked);
+			}
+			p += k;
+			nbytes -= k;
+		}
+		return s;
+	}
+	,readInt32: function() {
+		var ch1 = this.readByte();
+		var ch2 = this.readByte();
+		var ch3 = this.readByte();
+		var ch4 = this.readByte();
+		if(this.bigEndian) {
+			return ch4 | ch3 << 8 | ch2 << 16 | ch1 << 24;
+		} else {
+			return ch1 | ch2 << 8 | ch3 << 16 | ch4 << 24;
+		}
+	}
+	,readString: function(len,encoding) {
+		var b = new haxe_io_Bytes(new ArrayBuffer(len));
+		this.readFullBytes(b,0,len);
+		return b.getString(0,len,encoding);
+	}
+	,__properties__: {set_bigEndian:"set_bigEndian"}
+};
 var haxe_io_Bytes = function(data) {
 	this.length = data.byteLength;
 	this.b = new Uint8Array(data);
@@ -1616,126 +1770,6 @@ haxe_io_Bytes.prototype = {
 			break;
 		}
 		return s;
-	}
-};
-var haxe_io_Encoding = $hxEnums["haxe.io.Encoding"] = { __ename__:true,__constructs__:null
-	,UTF8: {_hx_name:"UTF8",_hx_index:0,__enum__:"haxe.io.Encoding",toString:$estr}
-	,RawNative: {_hx_name:"RawNative",_hx_index:1,__enum__:"haxe.io.Encoding",toString:$estr}
-};
-haxe_io_Encoding.__constructs__ = [haxe_io_Encoding.UTF8,haxe_io_Encoding.RawNative];
-var haxe_ds_List = function() {
-	this.length = 0;
-};
-haxe_ds_List.__name__ = true;
-haxe_ds_List.prototype = {
-	add: function(item) {
-		var x = new haxe_ds__$List_ListNode(item,null);
-		if(this.h == null) {
-			this.h = x;
-		} else {
-			this.q.next = x;
-		}
-		this.q = x;
-		this.length++;
-	}
-};
-var haxe_ds__$List_ListNode = function(item,next) {
-	this.item = item;
-	this.next = next;
-};
-haxe_ds__$List_ListNode.__name__ = true;
-var haxe_exceptions_PosException = function(message,previous,pos) {
-	haxe_Exception.call(this,message,previous);
-	if(pos == null) {
-		this.posInfos = { fileName : "(unknown)", lineNumber : 0, className : "(unknown)", methodName : "(unknown)"};
-	} else {
-		this.posInfos = pos;
-	}
-};
-haxe_exceptions_PosException.__name__ = true;
-haxe_exceptions_PosException.__super__ = haxe_Exception;
-haxe_exceptions_PosException.prototype = $extend(haxe_Exception.prototype,{
-	toString: function() {
-		return "" + haxe_Exception.prototype.toString.call(this) + " in " + this.posInfos.className + "." + this.posInfos.methodName + " at " + this.posInfos.fileName + ":" + this.posInfos.lineNumber;
-	}
-});
-var haxe_exceptions_NotImplementedException = function(message,previous,pos) {
-	if(message == null) {
-		message = "Not implemented";
-	}
-	haxe_exceptions_PosException.call(this,message,previous,pos);
-};
-haxe_exceptions_NotImplementedException.__name__ = true;
-haxe_exceptions_NotImplementedException.__super__ = haxe_exceptions_PosException;
-haxe_exceptions_NotImplementedException.prototype = $extend(haxe_exceptions_PosException.prototype,{
-});
-var haxe_io_Input = function() { };
-haxe_io_Input.__name__ = true;
-haxe_io_Input.prototype = {
-	readByte: function() {
-		throw new haxe_exceptions_NotImplementedException(null,null,{ fileName : "haxe/io/Input.hx", lineNumber : 53, className : "haxe.io.Input", methodName : "readByte"});
-	}
-	,readBytes: function(s,pos,len) {
-		var k = len;
-		var b = s.b;
-		if(pos < 0 || len < 0 || pos + len > s.length) {
-			throw haxe_Exception.thrown(haxe_io_Error.OutsideBounds);
-		}
-		try {
-			while(k > 0) {
-				b[pos] = this.readByte();
-				++pos;
-				--k;
-			}
-		} catch( _g ) {
-			if(!((haxe_Exception.caught(_g).unwrap()) instanceof haxe_io_Eof)) {
-				throw _g;
-			}
-		}
-		return len - k;
-	}
-	,set_bigEndian: function(b) {
-		this.bigEndian = b;
-		return b;
-	}
-	,readFullBytes: function(s,pos,len) {
-		while(len > 0) {
-			var k = this.readBytes(s,pos,len);
-			if(k == 0) {
-				throw haxe_Exception.thrown(haxe_io_Error.Blocked);
-			}
-			pos += k;
-			len -= k;
-		}
-	}
-	,read: function(nbytes) {
-		var s = new haxe_io_Bytes(new ArrayBuffer(nbytes));
-		var p = 0;
-		while(nbytes > 0) {
-			var k = this.readBytes(s,p,nbytes);
-			if(k == 0) {
-				throw haxe_Exception.thrown(haxe_io_Error.Blocked);
-			}
-			p += k;
-			nbytes -= k;
-		}
-		return s;
-	}
-	,readInt32: function() {
-		var ch1 = this.readByte();
-		var ch2 = this.readByte();
-		var ch3 = this.readByte();
-		var ch4 = this.readByte();
-		if(this.bigEndian) {
-			return ch4 | ch3 << 8 | ch2 << 16 | ch1 << 24;
-		} else {
-			return ch1 | ch2 << 8 | ch3 << 16 | ch4 << 24;
-		}
-	}
-	,readString: function(len,encoding) {
-		var b = new haxe_io_Bytes(new ArrayBuffer(len));
-		this.readFullBytes(b,0,len);
-		return b.getString(0,len,encoding);
 	}
 };
 var haxe_io_BytesBuffer = function() {
@@ -1905,6 +1939,7 @@ haxe_io_Output.prototype = {
 		var b = haxe_io_Bytes.ofString(s,encoding);
 		this.writeFullBytes(b,0,b.length);
 	}
+	,__properties__: {set_bigEndian:"set_bigEndian"}
 };
 var haxe_io_BytesOutput = function() {
 	this.b = new haxe_io_BytesBuffer();
@@ -1923,6 +1958,11 @@ haxe_io_BytesOutput.prototype = $extend(haxe_io_Output.prototype,{
 		return this.b.getBytes();
 	}
 });
+var haxe_io_Encoding = $hxEnums["haxe.io.Encoding"] = { __ename__:true,__constructs__:null
+	,UTF8: {_hx_name:"UTF8",_hx_index:0,__enum__:"haxe.io.Encoding",toString:$estr}
+	,RawNative: {_hx_name:"RawNative",_hx_index:1,__enum__:"haxe.io.Encoding",toString:$estr}
+};
+haxe_io_Encoding.__constructs__ = [haxe_io_Encoding.UTF8,haxe_io_Encoding.RawNative];
 var haxe_io_Eof = function() {
 };
 haxe_io_Eof.__name__ = true;
@@ -2044,6 +2084,32 @@ js_Boot.__string_rec = function(o,s) {
 	default:
 		return String(o);
 	}
+};
+var lib_Rarezip = function() { };
+lib_Rarezip.__name__ = true;
+lib_Rarezip.compress = function(src) {
+	var size = src.get_length();
+	var compressed = new Zlib.RawDeflate(src).compress();
+	var out = new framework_ByteThingyWhatToNameIt(new haxe_io_Bytes(new ArrayBuffer(compressed.length + 5)),false);
+	out.writeUint32(size,true);
+	out.writeUint8(9);
+	out.writeUint8Array(compressed);
+	out.position = 0;
+	return out;
+};
+lib_Rarezip.decompress = function(src) {
+	var size = src.readUint32(true);
+	var level = src.readUint8();
+	var compressedSize = src.get_length() - 5;
+	var compressed = src.readUint8Array(compressedSize);
+	var decompressed = new Zlib.RawInflate(compressed).decompress();
+	if(decompressed.length != size) {
+		throw haxe_Exception.thrown("decompressed size does not match");
+	}
+	var out = new framework_ByteThingyWhatToNameIt(new haxe_io_Bytes(new ArrayBuffer(decompressed.length)),false);
+	out.writeUint8Array(decompressed);
+	out.position = 0;
+	return out;
 };
 var lib_haxepngjs_Color = $hxEnums["lib.haxepngjs.Color"] = { __ename__:true,__constructs__:null
 	,ColGrey: ($_=function(alpha) { return {_hx_index:0,alpha:alpha,__enum__:"lib.haxepngjs.Color",toString:$estr}; },$_._hx_name="ColGrey",$_.__params__ = ["alpha"],$_)
@@ -3654,35 +3720,25 @@ ui_UI.displayTextureInfo = function(num) {
 	ui_UI.name_txt.value = tInfo.name;
 	ui_UI.tags_txt.value = tInfo.tags.join(",");
 	ui_UI.path_txt.value = tInfo.path;
-	var t = Main.ROM.bin.getItem(num);
-	if(t.resCount > 1) {
-		var posX = 0;
-		var posY = 0;
-		var _g = 0;
-		var _g1 = t.resCount;
-		while(_g < _g1) {
-			var i = _g++;
-			var t2 = t.resources[i];
-			Main.ROM.bin.data.position = t2.ofs;
-			var arr = Main.ROM.bin.data.readByteThingy(t2.size,false);
-			var ovr = tInfo.resInfo.formatOVR;
-			var tx = framework_codec_Texture.decodeTexture(arr,t2.size,ovr);
-			if(tx.format > -1) {
-				ui_UI.gfx.drawTexture(posX,posY,tx,ovr.forceOpacity);
-				posY += tx.height + 8;
-				if(posY >= 608 - (tx.height + 8)) {
-					posY = 0;
-					posX += tx.width + 8;
-				}
-			}
-		}
-	} else {
-		Main.ROM.bin.data.position = t.resources[0].ofs;
-		var arr = Main.ROM.bin.data.readByteThingy(t.resources[0].size,false);
+	ui_UI.gfx.clearScreen();
+	var t0 = Main.ROM.bin.getFile(num);
+	var posX = 0;
+	var posY = 0;
+	var _g = 0;
+	var _g1 = t0.length;
+	while(_g < _g1) {
+		var i = _g++;
+		var arr = t0[i];
 		var ovr = tInfo.resInfo.formatOVR;
-		var tx = framework_codec_Texture.decodeTexture(arr,t.resources[0].size,ovr);
+		var arr2 = lib_Rarezip.decompress(arr);
+		var tx = framework_codec_Texture.decodeTexture(arr2,0,ovr);
 		if(tx.format > -1) {
-			ui_UI.gfx.drawTexture(0,0,tx,ovr.forceOpacity);
+			ui_UI.gfx.drawTexture(posX,posY,tx,ovr.forceOpacity);
+			posY += tx.height + 8;
+			if(posY >= 608 - (tx.height + 8)) {
+				posY = 0;
+				posX += tx.width + 8;
+			}
 		}
 	}
 };

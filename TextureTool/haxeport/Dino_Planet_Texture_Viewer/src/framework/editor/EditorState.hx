@@ -1,4 +1,4 @@
-package framework;
+package framework.editor;
 import framework.codec.BinPack;
 import framework.ManifestDB.TDPFileManifest;
 

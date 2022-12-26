@@ -8,6 +8,8 @@ import framework.ByteThingyWhatToNameIt;
 import framework.codec.Texture;
 import framework.codec.Texture.TTextureFormatOverride;
 import framework.editor.FileExporter;
+import lib.Rarezip;
+import haxe.io.Bytes;
 
 class UI
 {
@@ -92,37 +94,29 @@ class UI
 		tags_txt.value = tInfo.tags.join(",");
 		path_txt.value = tInfo.path;
 		
-		var t = Main.ROM.bin.getItem(num);
-		if (t.resCount > 1) {
-			var posX = 0;
-			var posY = 0;
-			for (i in 0...t.resCount) {
-				var t2 = t.resources[i];
-				Main.ROM.bin.data.position = t2.ofs;
-				var arr:ByteThingyWhatToNameIt = Main.ROM.bin.data.readByteThingy(t2.size, false);
-				var ovr:TTextureFormatOverride = tInfo.resInfo.formatOVR;
-				
-				var tx = Texture.decodeTexture(arr,t2.size,ovr);
-				if (tx.format > -1) {
-					gfx.drawTexture(posX,posY,tx,ovr.forceOpacity);
-					posY += tx.height + 8;
-					// todo : magic #'s bad!
-					if (posY >= 608 - (tx.height + 8)) {
-						posY = 0;
-						posX += tx.width + 8;
-					}
+		gfx.clearScreen();
+		
+		var t0 = Main.ROM.bin.getFile(num);
+		
+		var posX = 0;
+		var posY = 0;
+		for (i in 0...t0.length) {
+			var arr = t0[i];
+			var ovr:TTextureFormatOverride = tInfo.resInfo.formatOVR;
+			var arr2 = Rarezip.decompress(arr);
+			
+			var tx = Texture.decodeTexture(arr2,0,ovr);
+			if (tx.format > -1) {
+				gfx.drawTexture(posX,posY,tx,ovr.forceOpacity);
+				posY += tx.height + 8;
+				// todo : magic #'s bad!
+				if (posY >= 608 - (tx.height + 8)) {
+					posY = 0;
+					posX += tx.width + 8;
 				}
 			}
-		} else {
-			Main.ROM.bin.data.position = t.resources[0].ofs;
-			var arr:ByteThingyWhatToNameIt = Main.ROM.bin.data.readByteThingy(t.resources[0].size,false);
-			var ovr:TTextureFormatOverride = tInfo.resInfo.formatOVR;
-			var tx = Texture.decodeTexture(arr,t.resources[0].size,ovr);
-			//console.log(dumpTextureInfo(t.ofs,t.size,0,num));
-			if (tx.format > -1) {
-				gfx.drawTexture(0,0,tx,ovr.forceOpacity);
-			}
 		}
+		
 	}
 	
 	// todo : select which format, not press specific button

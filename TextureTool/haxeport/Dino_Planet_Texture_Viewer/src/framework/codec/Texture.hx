@@ -4,6 +4,7 @@ import haxe.io.UInt16Array;
 import haxe.io.UInt8Array;
 import framework.ByteThingyWhatToNameIt;
 import js.html.ImageData;
+import lib.Rarezip;
 // keep for testing purposes [for now]
 import js.Syntax;
 
@@ -94,7 +95,13 @@ class Texture
 	// temp[?] solution is an override settings object
 	// stored in the manifest entries
 	public static function decodeTexture(src:ByteThingyWhatToNameIt,sizeComp:Int,?hack:TTextureFormatOverride) : TDinoPlanetTexture {
-		var raw = decompressTexture(src,sizeComp);
+		var raw:ByteThingyWhatToNameIt = null;
+		if (sizeComp > 0) { // hack...
+			raw = decompressTexture(src,sizeComp);
+		} else {
+			raw = src;
+		}
+		
 		var header = readTextureHeader(raw);
 		var noSwizzle : Bool = false;
 		var forceOpacity : Bool = false;
@@ -138,16 +145,8 @@ class Texture
 	// and it makes little sense to code-dupe it
 	// extract to another class ?
 	public static function decompressTexture(src:ByteThingyWhatToNameIt,sizeComp:Int) : ByteThingyWhatToNameIt {
-		//var size:Int = src.readInt32();
-		//var what:Int = src.readUint8();
-		src.position += 5;
-		var decompressed:UInt8Array = src.inflate(src.readUint8Array(sizeComp - 5), false);
-		var buf:Bytes = Bytes.alloc(decompressed.length);
-		var out:ByteThingyWhatToNameIt = new ByteThingyWhatToNameIt(buf, false);
-		out.writeUint8Array(decompressed);
-		out.position = 0;
-		
-		return out;
+		var decompressed = Rarezip.decompress(src);
+		return decompressed;
 	}
 
 	public static function compressTexture(src:UInt8Array) : UInt8Array {

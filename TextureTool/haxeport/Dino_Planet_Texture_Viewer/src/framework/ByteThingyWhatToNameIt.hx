@@ -12,11 +12,16 @@ class ByteThingyWhatToNameIt
 	public var tgt : Bytes;
 	public var position : Int;
 	var littleEndian : Bool;
+	public var length(get, default):Int;
 
 	public function new(src:Bytes,endian:Bool) {
 		tgt = src;
 		position = 0;
 		littleEndian = endian;
+	}
+	
+	public function get_length() {
+		return tgt.length;
 	}
 	
 	public function readUint8() {

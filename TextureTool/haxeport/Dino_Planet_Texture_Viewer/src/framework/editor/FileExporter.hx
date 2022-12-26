@@ -1,24 +1,14 @@
 package framework.editor;
 import framework.ByteThingyWhatToNameIt;
-import framework.EditorState;
+import framework.editor.EditorState;
 import framework.codec.Texture;
-import framework.codec.BinPack;
-import haxe.crypto.Base64;
-import haxe.io.BytesOutput;
 import haxe.io.UInt8Array;
-import js.Browser;
 import js.html.Blob;
-import lib.haxepngjs.Tools;
-import lib.haxepngjs.Writer;
-import ui.UI;
 import js.Syntax;
 import haxe.Json;
-import js.html.ImageData;
-import js.html.CanvasElement;
-import js.html.CanvasRenderingContext2D;
-import js.Browser.document;
 import framework.codec.PngTool;
 import haxe.io.Bytes;
+import lib.Rarezip;
 
 class FileExporter 
 {
@@ -32,21 +22,23 @@ class FileExporter
 			var ovr = curr.resInfo.formatOVR;
 			var tName = curr.path;
 			var texInfo0 = binfile.getItem(i);
+			var texData = binfile.getFile(i);
+			
 			if (curr.resInfo.frames.length > 0) {
 				for (j in 0...curr.resInfo.frames.length) {
 					//Syntax.code("console.log({0})", tName + "frame_" + j + ".dptf");
 					var texInfo = texInfo0.resources[j];
 					if (format == 0 ) {
-						var texFile = Texture.decompressTexture(bindat, texInfo.size).readUint8Array(texInfo.size);
-						Syntax.code("{0}.file({1},{2})", zipfile, tName + "frame_" + j + ".dptf", texFile);
+						var texFile = Rarezip.decompress(texData[j]);
+						Syntax.code("{0}.file({1},{2})", zipfile, tName + "frame_" + j + ".dptf", texFile.readUint8Array(texFile.length));
 					} else if (format == 1) {
-						var texFile = Texture.decodeTexture(bindat, texInfo.size, ovr);
+						var texFile = Texture.decodeTexture(texData[j], texData[j].length, ovr);
 						var forceOpacity:Bool = ovr.forceOpacity;
 						var pngFile = exportPNG(texFile, forceOpacity);
 						Syntax.code("{0}.file({1},{2})", zipfile, tName + "frame_" + j + ".png", pngFile);
 					} else {
-						var texFile = Texture.decompressTexture(bindat, texInfo.size).readUint8Array(texInfo.size);
-						Syntax.code("{0}.file({1},{2})", zipfile, tName + "frame_" + j + ".dptf", texFile);
+						var texFile = Rarezip.decompress(texData[j]);
+						Syntax.code("{0}.file({1},{2})", zipfile, tName + "frame_" + j + ".dptf", texFile.readUint8Array(texFile.length));
 					}
 				}
 			} else {
@@ -55,17 +47,18 @@ class FileExporter
 				//Syntax.code("console.log({0})", texInfo);
 				bindat.position = texInfo.ofs;
 				if (format == 0 ) {
-					var texFile = Texture.decompressTexture(bindat, texInfo.size).readUint8Array(texInfo.size);
-					Syntax.code("{0}.file({1},{2})", zipfile, tName, texFile);
+					//Syntax.code("console.log({0})",texData[0].tgt.length == texInfo.size);
+					var texFile = Rarezip.decompress(texData[0]);
+					Syntax.code("{0}.file({1},{2})", zipfile, tName, texFile.readUint8Array(texFile.length));
 				} else if (format == 1) {
-					var texFile = Texture.decodeTexture(bindat, texInfo.size, ovr);
+					var texFile = Texture.decodeTexture(texData[0], texData[0].tgt.length, ovr);
 					var forceOpacity:Bool = ovr.forceOpacity;
 					var pngFile = exportPNG(texFile, forceOpacity);
 					var fName = tName.split(".")[0];
 					Syntax.code("{0}.file({1},{2})", zipfile, fName + ".png", pngFile);
 				} else {
-					var texFile = Texture.decompressTexture(bindat, texInfo.size).readUint8Array(texInfo.size);
-					Syntax.code("{0}.file({1},{2})", zipfile, tName, texFile);
+					var texFile = Rarezip.decompress(texData[0]);
+					Syntax.code("{0}.file({1},{2})", zipfile, tName, texFile.readUint8Array(texFile.length));
 				}
 				
 			}

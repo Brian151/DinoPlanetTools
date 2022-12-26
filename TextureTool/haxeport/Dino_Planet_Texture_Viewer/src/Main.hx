@@ -1,24 +1,22 @@
 package;
 import Util;
-import framework.EditorState;
+import framework.editor.EditorState;
 import framework.editor.FileExporter;
 import haxe.io.Bytes;
 import framework.codec.Texture;
-import haxe.io.UInt8Array;
 import js.html.Blob;
 import js.html.Element;
 import js.html.InputElement;
 import js.html.FileReader;
-import js.lib.ArrayBuffer;
 import js.Syntax;
 import framework.ByteThingyWhatToNameIt;
 import framework.codec.BinPack;
 import js.Browser.document;
-import js.lib.Uint8Array;
 import haxe.Json;
 import Graphics;
 import ui.UI;
 import framework.dev.ManifestConverter;
+import lib.Rarezip;
 
 // all unused (now) but keep for reference
 /*import haxe.io.UInt8Array;
@@ -110,16 +108,15 @@ class Main
 		
 		ROM.currTex = 687;
 		// temp!
-		// FileExporter.exportZip(ROM,1);
-		var binfile = ROM.bin;
-		var bindat = ROM.bin.data;
+		
 		var curr = ROM.manifest.resources[ROM.currTex];
 		var tOVR = curr.resInfo.formatOVR;
-		var texInfo0 = binfile.getItem(ROM.currTex);
-		var texInfo = texInfo0.resources[0];
-		bindat.position = texInfo.ofs;
-		var tex = Texture.decodeTexture(bindat, texInfo.size,tOVR);
+		var binfile:BinPack = ROM.bin;
+		var texDat = binfile.getFile(ROM.currTex)[0];
+		var texDat2 = Rarezip.decompress(texDat);
+		var tex = Texture.decodeTexture(texDat2, 0,tOVR);
 		// FileExporter.exportPNG(tex, tOVR.forceOpacity, "aFileName");
+		// FileExporter.exportZip(ROM,1);
 		// ManifestConverter.update2();
 		
 		UI.displayTextureInfo(ROM.currTex);
