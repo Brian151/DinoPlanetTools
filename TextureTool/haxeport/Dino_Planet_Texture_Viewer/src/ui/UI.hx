@@ -4,12 +4,10 @@ import js.html.InputElement;
 import js.Browser.document;
 import js.Syntax;
 import js.html.Image;
-import framework.ByteThingyWhatToNameIt;
 import framework.codec.Texture;
 import framework.codec.Texture.TTextureFormatOverride;
 import framework.editor.FileExporter;
 import lib.Rarezip;
-import haxe.io.Bytes;
 
 class UI
 {

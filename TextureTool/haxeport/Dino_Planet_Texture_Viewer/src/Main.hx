@@ -17,6 +17,9 @@ import Graphics;
 import ui.UI;
 import framework.dev.ManifestConverter;
 import lib.Rarezip;
+import js.Browser.console;
+import framework.codec.Model;
+import framework.codec.Model_Types;
 
 // all unused (now) but keep for reference
 /*import haxe.io.UInt8Array;
@@ -39,49 +42,11 @@ class Main
 	static public var ROM:EditorState;
 	static var gfx:Graphics;
 	
-/*TODO : 
-	generic manifest format [mostly done]
-	ignore manifest file when loading [it's meta-data, NOT essential]
-	remove overrides [texture format 100% ? how do the "Weird" ones work?]
-	
-	auto-link files to editorstate if matching names / formats ["tex0" + [".bin", ".tab", ".manifest"]]
-	compare vanilla / modded packs
-		load default manifest files + bins
-	
-	windows / linux builds [or at least haxe-neko]
-		ifdefs for bits that just HAVE to use js.Syntax()
-		non-web graphics system
-	load from folders [almost certainly requires native build !]
-	
-	edit textures
-		import textures
-		load individual textures
-		UI redesign
-			editor UI
-			better display of "array texture"
-			render icon of actual texture
-			re-scaling...
-			use tags for searching
-		project files
-		pack bins
-			encode textures
-				texture format 100 %
-				compression
-			model texture references
-				more tools ?
-				export parts of the model "data"
-					[de/en]code at least parts of the model "data" format" (aka opcodes)
-				
-	
-	steal some assets (;
-		debug font
-		some menu elements
-		"default icon" - x */
-	
 	// core funcs
 	static function main() {
 		ROM = new EditorState(); // can't use this yet...
 		ROM.bin = new BinPack();
+		ROM.bin.type = 1;
 		gfx = new Graphics(cast document.getElementById("screen"));
 		
 		// for debugging with console
@@ -104,22 +69,29 @@ class Main
 			return;
 		}
 		
-		UI.initMenu(gfx, menu, name_txt, tags_txt, path_txt);
+		//UI.initMenu(gfx, menu, name_txt, tags_txt, path_txt);
 		
 		ROM.currTex = 687;
 		// temp!
 		
-		var curr = ROM.manifest.resources[ROM.currTex];
+		/*var curr = ROM.manifest.resources[ROM.currTex];
 		var tOVR = curr.resInfo.formatOVR;
 		var binfile:BinPack = ROM.bin;
 		var texDat = binfile.getFile(ROM.currTex)[0];
 		var texDat2 = Rarezip.decompress(texDat);
-		var tex = Texture.decodeTexture(texDat2, 0,tOVR);
+		var tex = Texture.decodeTexture(texDat2, 0,tOVR);*/
 		// FileExporter.exportPNG(tex, tOVR.forceOpacity, "aFileName");
 		// FileExporter.exportZip(ROM,1);
 		// ManifestConverter.update2();
 		
-		UI.displayTextureInfo(ROM.currTex);
+		// UI.displayTextureInfo(ROM.currTex);
+		
+		var curr = ROM.bin.getFile(0)[0];
+		//console.log(curr);
+		var mdldat = Model.decompressModel(curr.tgt);
+		console.log(mdldat);
+		var mdl = Model.readModel(mdldat);
+		console.log(mdl);
 	}
 	
 	public static function loadFile() {

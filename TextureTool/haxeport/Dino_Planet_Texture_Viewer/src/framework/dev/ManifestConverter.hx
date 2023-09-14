@@ -21,8 +21,8 @@ class ManifestConverter
 		var mf = Main.ROM.manifest;
 		for (i in 0...mf.resources.length){
 			var res = mf.resources[i].resInfo;
-			var w = res.formatOVR.width;
-			var h = res.formatOVR.height;
+			var w = Reflect.getProperty(res.formatOVR,"width");
+			var h = Reflect.getProperty(res.formatOVR,"height");
 			Reflect.deleteField(res.formatOVR, "format");
 			if (w > 0) { // re-encode previously overridden width/height 
 				res.width = w;

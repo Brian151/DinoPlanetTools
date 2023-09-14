@@ -2,16 +2,18 @@ package lib;
 import framework.ByteThingyWhatToNameIt;
 import haxe.io.Bytes;
 import haxe.io.UInt8Array;
-import js.Syntax;
+import pako.Pako;
 
 class Rarezip 
 {
-	// may not build byte-accurate streams due to deflate level
 	public static function compress(src:ByteThingyWhatToNameIt) : ByteThingyWhatToNameIt {
 		var size:Int = src.length;
 		
 		#if js
-			var compressed:UInt8Array = Syntax.code("new Zlib.RawDeflate({0}).compress();", src);
+			src.position = 0;
+			var rawBytes = src.readUint8Array(size);
+			// dual cast cuz whiny compiler... 
+			var compressed:UInt8Array = cast Pako.deflateRaw(cast rawBytes, {level:9});
 		#else
 			throw "not implemented";
 		#end
@@ -30,10 +32,10 @@ class Rarezip
 		var level:Int = src.readUint8();
 		var compressedSize = src.length - 5;
 		
-		
 		#if js
 			var compressed:UInt8Array = src.readUint8Array(compressedSize);
-			var decompressed:UInt8Array = Syntax.code("new Zlib.RawInflate({0}).decompress();", compressed);
+			// dual cast cuz whiny compiler... 
+			var decompressed:UInt8Array = cast Pako.inflateRaw(cast compressed);
 		#else
 			throw "not implemented";
 		#end

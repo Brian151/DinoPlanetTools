@@ -18,13 +18,16 @@ class Graphics
 	}
 	
 	public function drawTexture(x:Int,y:Int,texture:TDinoPlanetTexture,forceOpacity:Bool) : Void {
-		ctx.fillStyle = "#000000";
-		ctx.fillRect(0,0,scrn.width,scrn.height);
 		var turtle = Texture.convertToImage(texture,forceOpacity);
 		drawImageData(turtle, x, y, 1);
 		if (texture.format == 7 || texture.format == 8) {
 			drawPallete(texture.palette);
 		}
+	}
+	
+	public function clearScreen() {
+		ctx.fillStyle = "#000000";
+		ctx.fillRect(0,0,scrn.width,scrn.height);
 	}
 	
 	public function drawImageData(iDat:ImageData,x:Int,y:Int,scale:Int) : Void {

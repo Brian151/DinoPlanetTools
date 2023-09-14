@@ -80,8 +80,7 @@ class Util
 	// > ???
 	// gross ... 
 	public static function createByteArray(src:ArrayBuffer,end:Bool) {
-		var arr = new Uint8Array(src);
-		var bytearr:Bytes = Bytes.ofData(arr.buffer);
+		var bytearr:Bytes = Bytes.ofData(src);
 		return new ByteThingyWhatToNameIt(bytearr, end);
 	}
 	
@@ -104,5 +103,25 @@ class Util
 			out.set(i,src[i]);
 		}
 		return out;
+	}
+	
+	public static inline function reverseI32(input:Int) : Int {
+		var mask = 0xff;
+		var out = (input & mask) << 24;
+		input >>= 8;
+		out |= (input & mask) << 16;
+		input >>= 8;
+		out |= (input & mask) << 8;
+		input >>= 8;
+		out |= (input & mask);
+		return out;
+	}
+	
+	public static inline function reverseI16(input:Int) {
+		// TODO
+	}
+	
+	public static inline function reverseI24(input:Int) {
+		// TODO
 	}
 }

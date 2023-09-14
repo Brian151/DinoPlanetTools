@@ -12,7 +12,7 @@ class ByteThingyWhatToNameIt
 	public var tgt : Bytes;
 	public var position : Int;
 	var littleEndian : Bool;
-	public var length(get, default):Int;
+	public var length(get, null):Int;
 
 	public function new(src:Bytes,endian:Bool) {
 		tgt = src;
@@ -67,7 +67,7 @@ class ByteThingyWhatToNameIt
 		return (a << 16) + (b << 8) + c;
 	}
 	
-	public function readInt8(endian) {
+	public function readInt8() {
 		var n = readUint8();
 		var flag = ((n & 0x80) >> 7) == 1;
 		if (flag) {
@@ -148,7 +148,7 @@ class ByteThingyWhatToNameIt
 	public function writeUint16(v:Int, endian:Bool) {
 		var a:Int = (v & 0xff00) >> 8;
 		var b:Int = v & 0xff;
-		if (endian) {
+		if (endian || littleEndian) {
 			tgt.set(position, b);
 			tgt.set(position + 1,a);
 		} else {
@@ -163,7 +163,7 @@ class ByteThingyWhatToNameIt
 		var b:Int = (v & 0xff0000) >> 16;
 		var c:Int = (v & 0xff00) >> 8;
 		var d:Int = v & 0xff;
-		if (endian) {
+		if (endian || littleEndian) {
 			tgt.set(position, d);
 			tgt.set(position + 1, c);
 			tgt.set(position + 2, b);
@@ -181,7 +181,7 @@ class ByteThingyWhatToNameIt
 		var a:Int = (v & 0xff0000) >> 16;
 		var b:Int = (v & 0xff00) >> 8;
 		var c:Int = v & 0xff;
-		if (endian) {
+		if (endian || littleEndian) {
 			tgt.set(position, c);
 			tgt.set(position + 1, b);
 			tgt.set(position + 2, a);
@@ -197,32 +197,6 @@ class ByteThingyWhatToNameIt
 		for (i in 0...src.length) {
 			writeUint8(src[i]);
 		}
-	}
-	
-	public function inflate(src:UInt8Array,write:Bool) : UInt8Array {
-		#if js
-			var decompressed:UInt8Array = Syntax.code("new Zlib.RawInflate({0}).decompress()", src);
-			if (write) {
-				writeUint8Array(decompressed);
-			}
-			return decompressed;
-		#else
-			throw new Error("not implemented for this target (yet)");
-			return new UInt8Array(1);
-		#end
-	}
-	
-	public function deflate(src:UInt8Array,write:Bool) : UInt8Array {
-		#if js
-			var compressed:UInt8Array = Syntax.code("new Zlib.RawDeflate({0}).decompress()", src);
-			if (write) {
-				writeUint8Array(compressed);
-			}
-			return compressed;
-		#else
-			throw new Error("not implemented for this target (yet)");
-			return new UInt8Array(1);
-		#end
 	}
 	
 	//eventually, floats T-T

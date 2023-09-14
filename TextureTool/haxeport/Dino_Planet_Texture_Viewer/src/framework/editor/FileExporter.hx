@@ -51,7 +51,7 @@ class FileExporter
 					var texFile = Rarezip.decompress(texData[0]);
 					Syntax.code("{0}.file({1},{2})", zipfile, tName, texFile.readUint8Array(texFile.length));
 				} else if (format == 1) {
-					var texFile = Texture.decodeTexture(texData[0], texData[0].tgt.length, ovr);
+					var texFile = Texture.decodeTexture(texData[0], texData[0].length, ovr);
 					var forceOpacity:Bool = ovr.forceOpacity;
 					var pngFile = exportPNG(texFile, forceOpacity);
 					var fName = tName.split(".")[0];
