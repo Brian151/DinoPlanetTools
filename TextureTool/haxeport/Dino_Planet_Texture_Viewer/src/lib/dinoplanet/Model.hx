@@ -1,10 +1,9 @@
-package framework.codec;
-import framework.codec.Model_Types;
+package lib.dinoplanet;
+import lib.dinoplanet.Model_Types;
 import haxe.io.Bytes;
 import haxe.io.BytesInput;
 import haxe.io.UInt8Array;
-import js.Syntax;
-import js.Browser.console;
+import js.Browser.console; // X-PLAT THIS
 import pako.Pako;
 
 

@@ -15,9 +15,9 @@ var Graphics = function(cnv) {
 Graphics.__name__ = true;
 Graphics.prototype = {
 	drawTexture: function(x,y,texture,forceOpacity) {
-		var turtle = framework_codec_Texture.convertToImage(texture,forceOpacity);
+		var turtle = lib_dinoplanet_Texture.convertToImage(texture,forceOpacity);
 		this.drawImageData(turtle,x,y,1);
-		if(texture.format == 7 || texture.format == 8) {
+		if(texture.format.pixelFormat == 7 || texture.format.pixelFormat == 8) {
 			this.drawPallete(texture.palette);
 		}
 	}
@@ -39,10 +39,10 @@ Graphics.prototype = {
 			while(_g2 < _g3) {
 				var iX = _g2++;
 				var base = posP * 4;
-				var r = Util.hexa(arrP[base]);
-				var g = Util.hexa(arrP[base + 1]);
-				var b = Util.hexa(arrP[base + 2]);
-				var a = Util.hexa(arrP[base + 3]);
+				var r = StringTools.hex(arrP[base],2);
+				var g = StringTools.hex(arrP[base + 1],2);
+				var b = StringTools.hex(arrP[base + 2],2);
+				var a = StringTools.hex(arrP[base + 3],2);
 				this.ctx.fillStyle = "#" + r + g + b + a;
 				this.ctx.fillRect(posX,posY,scale,scale);
 				posX += scale;
@@ -75,6 +75,15 @@ Graphics.prototype = {
 			posX += 16;
 		}
 	}
+	,rect: function(posX,posY,width,height,color) {
+		this.ctx.fillStyle = color;
+		this.ctx.fillRect(posX,posY,width,height);
+	}
+	,drawText: function(txt,color,posX,posY) {
+		this.ctx.font = "16px Georgia";
+		this.ctx.fillStyle = color;
+		this.ctx.fillText(txt,posX,posY);
+	}
 };
 var HxOverrides = function() { };
 HxOverrides.__name__ = true;
@@ -103,8 +112,8 @@ HxOverrides.now = function() {
 var Main = function() { };
 Main.__name__ = true;
 Main.main = function() {
-	Main.ROM = new framework_editor_EditorState();
-	Main.ROM.bin = new framework_codec_BinPack();
+	Main.ROM = new editor_EditorState();
+	Main.ROM.bin = new lib_dinoplanet_TexPack();
 	Main.gfx = new Graphics(window.document.getElementById("screen"));
 	window.ROM = Main.ROM;
 	window.advanceTexture = ui_UI.advanceTexture;
@@ -127,8 +136,8 @@ Main.onFileLoaded = function() {
 	var tOVR = curr.resInfo.formatOVR;
 	var binfile = Main.ROM.bin;
 	var texDat = binfile.getFile(Main.ROM.currTex)[0];
-	var texDat2 = lib_Rarezip.decompress(texDat);
-	var tex = framework_codec_Texture.decodeTexture(texDat2,0,tOVR);
+	var texDat2 = lib_dinoplanet_Rarezip.decompress(texDat);
+	var tex = lib_dinoplanet_Texture.decodeTexture(texDat2,0,tOVR);
 	ui_UI.displayTextureInfo(Main.ROM.currTex);
 };
 Main.loadFile = function() {
@@ -140,12 +149,12 @@ Main.loadFile = function() {
 		var fr_tab = new FileReader();
 		var fr_mf = new FileReader();
 		fr_tex.onload = function() {
-			var arr = Util.createByteArray(fr_tex.result,false);
+			var arr = haxe_io_Bytes.ofData(fr_tex.result);
 			Main.ROM.bin.loadData(arr);
 			Main.onFileLoaded();
 		};
 		fr_tab.onload = function() {
-			var arr = Util.createByteArray(fr_tab.result,false);
+			var arr = haxe_io_Bytes.ofData(fr_tab.result);
 			Main.ROM.bin.loadOffsets(arr);
 			Main.onFileLoaded();
 		};
@@ -198,6 +207,11 @@ Reflect.deleteField = function(o,field) {
 	delete(o[field]);
 	return true;
 };
+var Std = function() { };
+Std.__name__ = true;
+Std.string = function(s) {
+	return js_Boot.__string_rec(s,"");
+};
 var StringTools = function() { };
 StringTools.__name__ = true;
 StringTools.hex = function(n,digits) {
@@ -215,1168 +229,9 @@ StringTools.hex = function(n,digits) {
 	}
 	return s;
 };
-var Util = function() { };
-Util.__name__ = true;
-Util.dataSize = function(size) {
-	var k = 1024;
-	var m = k * k;
-	var g = m * k;
-	var fk = Math.floor(size / k);
-	var fm = Math.floor(size / m);
-	var fg = Math.floor(size / g);
-	if(fg >= 1) {
-		var num2 = fg == null ? "null" : "" + fg;
-		var out = HxOverrides.substr(num2,0,num2.indexOf(".") + 3);
-		return out + " GB";
-	} else if(fm >= 1) {
-		var num2 = fm == null ? "null" : "" + fm;
-		var out = HxOverrides.substr(num2,0,num2.indexOf(".") + 3);
-		return out + " MB";
-	} else if(fk >= 1) {
-		var num2 = fk == null ? "null" : "" + fk;
-		var out = HxOverrides.substr(num2,0,num2.indexOf(".") + 3);
-		return out + " KB";
-	}
-	return size + " B";
-};
-Util.truncateDecimals = function(num,places) {
-	var num2 = num == null ? "null" : "" + num;
-	var out = HxOverrides.substr(num2,0,num2.indexOf(".") + (places + 1));
-	return out;
-};
-Util.createByteArray = function(src,end) {
-	var arr = new Uint8Array(src);
-	var bytearr = haxe_io_Bytes.ofData(arr.buffer);
-	return new framework_ByteThingyWhatToNameIt(bytearr,end);
-};
-Util.hexa = function(n) {
-	return StringTools.hex(n,2);
-};
-Util.BytesToU8Array = function(src) {
-	var this1 = new Uint8Array(src.length);
-	var out = this1;
-	var _g = 0;
-	var _g1 = src.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out[i] = src.b[i];
-	}
-	return out;
-};
-Util.U8ArrayToBytes = function(src) {
-	var out = new haxe_io_Bytes(new ArrayBuffer(src.length));
-	var _g = 0;
-	var _g1 = src.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out.b[i] = src[i];
-	}
-	return out;
-};
-var framework_ByteThingyWhatToNameIt = function(src,endian) {
-	this.tgt = src;
-	this.position = 0;
-	this.littleEndian = endian;
-};
-framework_ByteThingyWhatToNameIt.__name__ = true;
-framework_ByteThingyWhatToNameIt.prototype = {
-	get_length: function() {
-		return this.tgt.length;
-	}
-	,readUint8: function() {
-		var out = this.tgt.b[this.position];
-		this.position++;
-		return out;
-	}
-	,readUint16: function(endian) {
-		var a = this.tgt.b[this.position];
-		var b = this.tgt.b[this.position + 1];
-		if(endian || this.littleEndian) {
-			this.position += 2;
-			return (b << 8) + a;
-		}
-		this.position += 2;
-		return (a << 8) + b;
-	}
-	,readUint32: function(endian) {
-		var a = this.tgt.b[this.position];
-		var b = this.tgt.b[this.position + 1];
-		var c = this.tgt.b[this.position + 2];
-		var d = this.tgt.b[this.position + 3];
-		if(endian || this.littleEndian) {
-			this.position += 4;
-			return (d << 24) + (c << 16) + (b << 8) + a;
-		}
-		this.position += 4;
-		return (a << 24) + (b << 16) + (c << 8) + d;
-	}
-	,readUint24: function(endian) {
-		var a = this.tgt.b[this.position];
-		var b = this.tgt.b[this.position + 1];
-		var c = this.tgt.b[this.position + 2];
-		if(endian || this.littleEndian) {
-			this.position += 3;
-			return (c << 16) + (b << 8) + a;
-		}
-		this.position += 3;
-		return (a << 16) + (b << 8) + c;
-	}
-	,readInt8: function(endian) {
-		var n = this.readUint8();
-		var flag = (n & 128) >> 7 == 1;
-		if(flag) {
-			n |= Util.signExtension[24];
-		}
-	}
-	,readInt16: function(endian) {
-		var n = this.readUint16(endian);
-		var flag = (n & 32768) >> 15 == 1;
-		if(flag) {
-			n |= Util.signExtension[16];
-		}
-		return n;
-	}
-	,readInt32: function(endian) {
-		var n = this.readUint32(endian);
-		var flag = (n & -2147483648) >> 31 == 1;
-		if(flag) {
-			n |= Util.signExtension[0];
-		}
-		return n;
-	}
-	,readInt24: function(endian) {
-		var n = this.readUint24(endian);
-		var flag = (n & 8388608) >> 23 == 1;
-		if(flag) {
-			n |= Util.signExtension[8];
-		}
-		return n;
-	}
-	,readUint8Array: function(length) {
-		var this1 = new Uint8Array(length);
-		var out = this1;
-		var _g = 0;
-		var _g1 = length;
-		while(_g < _g1) {
-			var i = _g++;
-			out[i] = this.readUint8();
-		}
-		return out;
-	}
-	,readByteThingy: function(length,endian) {
-		var outBytes = new haxe_io_Bytes(new ArrayBuffer(length));
-		outBytes.blit(0,this.tgt,this.position,length);
-		this.position += length;
-		return new framework_ByteThingyWhatToNameIt(outBytes,endian);
-	}
-	,readUint16Array: function(length,endian) {
-		var this1 = new Uint16Array(length);
-		var out = this1;
-		var _g = 0;
-		var _g1 = length;
-		while(_g < _g1) {
-			var i = _g++;
-			out[i] = this.readUint16(endian);
-		}
-		return out;
-	}
-	,readUint32Array: function(length,endian) {
-		var this1 = new Uint32Array(length);
-		var out = this1;
-		var _g = 0;
-		var _g1 = length;
-		while(_g < _g1) {
-			var i = _g++;
-			out[i] = this.readUint32(endian);
-		}
-		return out;
-	}
-	,readBytes: function(length) {
-		var out = new haxe_io_Bytes(new ArrayBuffer(length));
-		out.blit(0,this.tgt,this.position,length);
-		return out;
-	}
-	,writeUint8: function(v) {
-		this.tgt.b[this.position] = v & 255;
-		this.position++;
-	}
-	,writeUint16: function(v,endian) {
-		var a = (v & 65280) >> 8;
-		var b = v & 255;
-		if(endian) {
-			this.tgt.b[this.position] = b;
-			this.tgt.b[this.position + 1] = a;
-		} else {
-			this.tgt.b[this.position] = a;
-			this.tgt.b[this.position + 1] = b;
-		}
-		this.position += 2;
-	}
-	,writeUint32: function(v,endian) {
-		var a = (v & -16777216) >> 24;
-		var b = (v & 16711680) >> 16;
-		var c = (v & 65280) >> 8;
-		var d = v & 255;
-		if(endian) {
-			this.tgt.b[this.position] = d;
-			this.tgt.b[this.position + 1] = c;
-			this.tgt.b[this.position + 2] = b;
-			this.tgt.b[this.position + 3] = a;
-		} else {
-			this.tgt.b[this.position] = a;
-			this.tgt.b[this.position + 1] = b;
-			this.tgt.b[this.position + 2] = c;
-			this.tgt.b[this.position + 3] = d;
-		}
-		this.position += 4;
-	}
-	,writeUint24: function(v,endian) {
-		var a = (v & 16711680) >> 16;
-		var b = (v & 65280) >> 8;
-		var c = v & 255;
-		if(endian) {
-			this.tgt.b[this.position] = c;
-			this.tgt.b[this.position + 1] = b;
-			this.tgt.b[this.position + 2] = a;
-		} else {
-			this.tgt.b[this.position] = a;
-			this.tgt.b[this.position + 1] = b;
-			this.tgt.b[this.position + 2] = c;
-		}
-		this.position += 3;
-	}
-	,writeUint8Array: function(src) {
-		var _g = 0;
-		var _g1 = src.length;
-		while(_g < _g1) {
-			var i = _g++;
-			this.writeUint8(src[i]);
-		}
-	}
-	,inflate: function(src,write) {
-		var decompressed = new Zlib.RawInflate(src).decompress();
-		if(write) {
-			this.writeUint8Array(decompressed);
-		}
-		return decompressed;
-	}
-	,deflate: function(src,write) {
-		var compressed = new Zlib.RawDeflate(src).decompress();
-		if(write) {
-			this.writeUint8Array(compressed);
-		}
-		return compressed;
-	}
-	,__properties__: {get_length:"get_length"}
-};
-var framework_ManifestDB = function() { };
-framework_ManifestDB.__name__ = true;
-var framework_codec_BinPack = function() {
-};
-framework_codec_BinPack.__name__ = true;
-framework_codec_BinPack.prototype = {
-	loadData: function(bin) {
-		this.data = bin;
-	}
-	,loadOffsets: function(tab) {
-		this.offsetTable = tab;
-	}
-	,getItem: function(ord) {
-		this.offsetTable.position = ord * 4;
-		var ofs = this.offsetTable.readUint32(false);
-		var endOfs = this.offsetTable.readUint32(false);
-		var size = (endOfs & 16777215) - (ofs & 16777215);
-		var numSubTextures = (ofs & -16777216) >> 24;
-		var realOfs = ofs & 16777215;
-		this.data.position = realOfs;
-		var outBuf = new haxe_io_Bytes(new ArrayBuffer(size));
-		var outDat = new framework_ByteThingyWhatToNameIt(outBuf,false);
-		outDat.writeUint8Array(this.data.readUint8Array(size));
-		var out = { resCount : numSubTextures, resources : [{ ofs : realOfs, size : size}], data : outDat};
-		if(numSubTextures > 1) {
-			this.data.position = realOfs;
-			out.resources.pop();
-			var table = this.data.readUint32Array((numSubTextures + 1) * 2,false);
-			var _g = 0;
-			var _g1 = numSubTextures;
-			while(_g < _g1) {
-				var i = _g++;
-				var ofs1 = table[i * 2];
-				var ofs2 = table[(i + 1) * 2];
-				var sizeComp = ofs2 - ofs1;
-				out.resources.push({ ofs : ofs1 + realOfs, size : sizeComp});
-			}
-		}
-		return out;
-	}
-	,getFile: function(ord) {
-		var datEntry = this.getItem(ord);
-		var out = [];
-		var _g = 0;
-		var _g1 = datEntry.resCount;
-		while(_g < _g1) {
-			var i = _g++;
-			var curr = datEntry.resources[i];
-			this.data.position = curr.ofs;
-			out.push(this.data.readByteThingy(curr.size,false));
-		}
-		return out;
-	}
-};
-var framework_codec_PngTool = function() { };
-framework_codec_PngTool.__name__ = true;
-framework_codec_PngTool.BGRA = function(dat) {
-	var p = 0;
-	var _g = 0;
-	var _g1 = dat.length >> 2;
-	while(_g < _g1) {
-		var i = _g++;
-		var r = dat.b[p];
-		var g = dat.b[p + 1];
-		var b = dat.b[p + 2];
-		dat.b[p++] = b;
-		dat.b[p++] = g;
-		dat.b[p++] = r;
-		++p;
-	}
-};
-framework_codec_PngTool.textureToPNG = function(src) {
-	switch(src.format) {
-	case 0:
-		var img = framework_codec_Texture.convertToImage(src,false);
-		var src1 = img.data;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var dat = out;
-		framework_codec_PngTool.BGRA(dat);
-		var png = lib_haxepngjs_Tools.build32BGRA(src.width,src.height,dat);
-		var pngB = new haxe_io_BytesOutput();
-		new lib_haxepngjs_Writer(pngB).write(png);
-		return pngB.getBytes();
-	case 1:
-		var img = framework_codec_Texture.convertToImage(src,false);
-		var src1 = img.data;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var dat = out;
-		framework_codec_PngTool.BGRA(dat);
-		var png = lib_haxepngjs_Tools.build32BGRA(src.width,src.height,dat);
-		var pngB = new haxe_io_BytesOutput();
-		new lib_haxepngjs_Writer(pngB).write(png);
-		return pngB.getBytes();
-	case 2:
-		var src1 = src.pixels;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var dat = out;
-		var png = lib_haxepngjs_Tools.buildGrey(src.width,src.height,dat);
-		var pngB = new haxe_io_BytesOutput();
-		new lib_haxepngjs_Writer(pngB).write(png);
-		return pngB.getBytes();
-	case 3:
-		var src1 = src.pixels;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var dat = out;
-		var png = lib_haxepngjs_Tools.buildGrey(src.width,src.height,dat);
-		var pngB = new haxe_io_BytesOutput();
-		new lib_haxepngjs_Writer(pngB).write(png);
-		return pngB.getBytes();
-	case 4:
-		var img = framework_codec_Texture.convertToImage(src,false);
-		var src1 = img.data;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var dat = out;
-		framework_codec_PngTool.BGRA(dat);
-		var png = lib_haxepngjs_Tools.build32BGRA(src.width,src.height,dat);
-		var pngB = new haxe_io_BytesOutput();
-		new lib_haxepngjs_Writer(pngB).write(png);
-		return pngB.getBytes();
-	case 5:
-		var img = framework_codec_Texture.convertToImage(src,false);
-		var src1 = img.data;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var dat = out;
-		framework_codec_PngTool.BGRA(dat);
-		var png = lib_haxepngjs_Tools.build32BGRA(src.width,src.height,dat);
-		var pngB = new haxe_io_BytesOutput();
-		new lib_haxepngjs_Writer(pngB).write(png);
-		return pngB.getBytes();
-	case 6:
-		var img = framework_codec_Texture.convertToImage(src,false);
-		var src1 = img.data;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var dat = out;
-		framework_codec_PngTool.BGRA(dat);
-		var png = lib_haxepngjs_Tools.build32BGRA(src.width,src.height,dat);
-		var pngB = new haxe_io_BytesOutput();
-		new lib_haxepngjs_Writer(pngB).write(png);
-		return pngB.getBytes();
-	case 7:
-		var src1 = src.pixels;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var dat = out;
-		var src1 = src.palette;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var datPal = out;
-		var png = lib_haxepngjs_Tools.buildIndexed(src.width,src.height,dat,datPal);
-		var pngB = new haxe_io_BytesOutput();
-		new lib_haxepngjs_Writer(pngB).write(png);
-		return pngB.getBytes();
-	case 8:
-		var src1 = src.pixels;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var dat = out;
-		var src1 = src.palette;
-		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
-		var _g = 0;
-		var _g1 = src1.length;
-		while(_g < _g1) {
-			var i = _g++;
-			out.b[i] = src1[i];
-		}
-		var datPal = out;
-		var png = lib_haxepngjs_Tools.buildIndexed(src.width,src.height,dat,datPal);
-		var pngB = new haxe_io_BytesOutput();
-		new lib_haxepngjs_Writer(pngB).write(png);
-		return pngB.getBytes();
-	}
-	return new haxe_io_Bytes(new ArrayBuffer(256));
-};
-framework_codec_PngTool.PNGToTexture = function(src) {
-	return null;
-};
-var framework_codec_Texture = function() { };
-framework_codec_Texture.__name__ = true;
-framework_codec_Texture.decodeTexture = function(src,sizeComp,hack) {
-	var raw = null;
-	if(sizeComp > 0) {
-		raw = framework_codec_Texture.decompressTexture(src,sizeComp);
-	} else {
-		raw = src;
-	}
-	var header = framework_codec_Texture.readTextureHeader(raw);
-	var noSwizzle = false;
-	var forceOpacity = false;
-	if(hack != null) {
-		noSwizzle = hack.noSwizzle;
-	}
-	switch(header.format) {
-	case 0:
-		return framework_codec_Texture.readTextureRGBA32(raw,header,noSwizzle);
-	case 1:
-		return framework_codec_Texture.readTextureRGBA16(raw,header,noSwizzle);
-	case 2:
-		return framework_codec_Texture.readTextureI8(raw,header,noSwizzle);
-	case 3:
-		return framework_codec_Texture.readTextureI4(raw,header,noSwizzle);
-	case 4:
-		return framework_codec_Texture.readTextureIA16(raw,header,noSwizzle);
-	case 5:
-		return framework_codec_Texture.readTextureIA8(raw,header,noSwizzle);
-	case 6:
-		return framework_codec_Texture.readTextureIA4(raw,header,noSwizzle);
-	case 7:
-		return framework_codec_Texture.readTextureCI4(raw,header,noSwizzle);
-	case 8:
-		return framework_codec_Texture.readTextureCI8(raw,header,noSwizzle);
-	default:
-		throw haxe_Exception.thrown("unknown texture format! (" + header.format + ")");
-	}
-};
-framework_codec_Texture.encodeTexture = function(tex,head) {
-	throw haxe_Exception.thrown("not implemented");
-};
-framework_codec_Texture.decompressTexture = function(src,sizeComp) {
-	var decompressed = lib_Rarezip.decompress(src);
-	return decompressed;
-};
-framework_codec_Texture.compressTexture = function(src) {
-	throw haxe_Exception.thrown("compression not implemented");
-};
-framework_codec_Texture.readTextureHeader = function(src) {
-	var out = { width : src.readUint8(), height : src.readUint8(), format : src.readUint8(), sprX : src.readUint8(), sprY : src.readUint8(), unk_0x5 : src.readUint8(), flags : src.readInt16(false), PTR_gdl : src.readUint32(false), levels : src.readUint16(false), unk_0xe : src.readUint16(false), unk_0x10 : src.readUint16(false), gdlIdx : src.readInt16(false), PTR_next : src.readUint32(false), unk_0x18 : src.readInt16(false), unk_0x1a : src.readUint8(), hwMSB : src.readUint8(), cms : src.readUint8(), masks : src.readUint8(), cmt : src.readUint8(), maskt : src.readUint8(), type : 0};
-	out.width += (out.hwMSB & 240) << 4;
-	out.height += (out.hwMSB & 15) << 8;
-	out.type = (out.format & 240) >> 4;
-	out.format &= 15;
-	return out;
-};
-framework_codec_Texture.writeTextureHeader = function(src) {
-	var buf = new haxe_io_Bytes(new ArrayBuffer(32));
-	var dest = new framework_ByteThingyWhatToNameIt(buf,false);
-	var wMSB = src.width & 3840;
-	var hMSB = src.height & 3840;
-	dest.writeUint8(src.width & 255);
-	dest.writeUint8(src.height & 255);
-	wMSB <<= 4;
-	var formatByte = src.format | src.type << 4;
-	dest.writeUint8(formatByte);
-	dest.writeUint8(src.sprX);
-	dest.writeUint8(src.sprY);
-	dest.writeUint8(1);
-	dest.writeUint16(src.flags,false);
-	dest.writeUint32(src.PTR_gdl,false);
-	dest.writeUint16(src.levels,false);
-	dest.writeUint16(src.unk_0xe,false);
-	dest.writeUint16(src.unk_0x10,false);
-	dest.writeUint16(src.gdlIdx,false);
-	dest.writeUint32(src.PTR_next,false);
-	dest.writeUint16(src.unk_0x18,false);
-	dest.writeUint8(src.unk_0x1a);
-	dest.writeUint8(wMSB | hMSB);
-	dest.writeUint8(src.cms);
-	dest.writeUint8(src.masks);
-	dest.writeUint8(src.cmt);
-	dest.writeUint8(src.maskt);
-	throw haxe_Exception.thrown("texture header write WIP, final files may not function in-game");
-};
-framework_codec_Texture.deSwizzleBits64 = function(src,row) {
-	var out = [];
-	var bits1 = src.readUint32(false);
-	var bits2 = src.readUint32(false);
-	if(row % 2 == 1) {
-		out.push(bits2);
-		out.push(bits1);
-	} else {
-		out.push(bits1);
-		out.push(bits2);
-	}
-	return out;
-};
-framework_codec_Texture.deSwizzleBits128 = function(src,row) {
-	var out = [];
-	var bits1 = src.readUint32(false);
-	var bits2 = src.readUint32(false);
-	var bits3 = src.readUint32(false);
-	var bits4 = src.readUint32(false);
-	if(row % 2 == 1) {
-		out.push(bits3);
-		out.push(bits4);
-		out.push(bits1);
-		out.push(bits2);
-	} else {
-		out.push(bits1);
-		out.push(bits2);
-		out.push(bits3);
-		out.push(bits4);
-	}
-	return out;
-};
-framework_codec_Texture.RGBA16 = function(c) {
-	var r = c & 63488;
-	var g = c & 1984;
-	var b = c & 62;
-	var a = c & 1;
-	r >>= 8;
-	g >>= 3;
-	b <<= 2;
-	var out = [];
-	out.push(r);
-	out.push(g);
-	out.push(b);
-	out.push(a * 255);
-	return out;
-};
-framework_codec_Texture.readPalette = function(src,numColors) {
-	var pal16 = src.readUint16Array(numColors,false);
-	var this1 = new Uint8Array(numColors * 4);
-	var palette = this1;
-	var _g = 0;
-	var _g1 = numColors;
-	while(_g < _g1) {
-		var i = _g++;
-		var c = framework_codec_Texture.RGBA16(pal16[i]);
-		var base = i * 4;
-		palette[base] = c[0];
-		palette[base + 1] = c[1];
-		palette[base + 2] = c[2];
-		palette[base + 3] = c[3];
-	}
-	return palette;
-};
-framework_codec_Texture.writePalette = function() {
-};
-framework_codec_Texture.readTextureRGBA32 = function(src,header,noSwizzle) {
-	var width = header.width;
-	var height = header.height;
-	var format = header.format;
-	var imageSize = width * height;
-	var this1 = new Uint8Array(imageSize * 4);
-	var pixels = this1;
-	src.position = 32;
-	var bitsLeft = 128;
-	var currentRow = 0;
-	var bitSrc = framework_codec_Texture.deSwizzleBits128(src,currentRow);
-	var _g = 0;
-	var _g1 = imageSize;
-	while(_g < _g1) {
-		var j = _g++;
-		if(j > 0 && j % width != 0) {
-			if(!noSwizzle) {
-				++currentRow;
-			}
-		}
-		if(bitsLeft <= 0) {
-			bitSrc = framework_codec_Texture.deSwizzleBits128(src,currentRow);
-			bitsLeft = 128;
-		}
-		var pix = 0;
-		var r = 0;
-		var g = 0;
-		var b = 0;
-		var a = 0;
-		if(bitsLeft >= 32) {
-			pix = bitSrc.shift();
-			r = (pix & -16777216) >>> 24;
-			g = (pix & 16711680) >>> 16;
-			b = (pix & 65280) >>> 8;
-			a = pix & 255;
-			bitsLeft -= 32;
-		}
-		var base = j * 4;
-		pixels[base] = r;
-		pixels[base + 1] = g;
-		pixels[base + 2] = b;
-		pixels[base + 3] = a;
-	}
-	var this1 = new Uint8Array(4);
-	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
-};
-framework_codec_Texture.readTextureRGBA16 = function(src,header,noSwizzle) {
-	var width = header.width;
-	var height = header.height;
-	var format = header.format;
-	var imageSize = width * height;
-	var this1 = new Uint8Array(imageSize * 4);
-	var pixels = this1;
-	src.position = 32;
-	var bitsLeft = 64;
-	var currentRow = 0;
-	var bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-	var bits1 = bitSrc[0];
-	var bits2 = bitSrc[1];
-	var _g = 0;
-	var _g1 = imageSize;
-	while(_g < _g1) {
-		var j = _g++;
-		if(j > 0 && j % width != 0) {
-			if(!noSwizzle) {
-				++currentRow;
-			}
-		}
-		if(bitsLeft <= 0) {
-			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-			bits1 = bitSrc[0];
-			bits2 = bitSrc[1];
-			bitsLeft = 64;
-		}
-		var pix = 0;
-		if(bitsLeft <= 32) {
-			pix = (bits2 & -65536) >>> 16;
-			bits2 <<= 16;
-			bitsLeft -= 16;
-		} else {
-			pix = (bits1 & -65536) >>> 16;
-			bits1 <<= 16;
-			bitsLeft -= 16;
-		}
-		var base = j * 4;
-		var c = framework_codec_Texture.RGBA16(pix);
-		pixels[base] = c[0];
-		pixels[base + 1] = c[1];
-		pixels[base + 2] = c[2];
-		pixels[base + 3] = c[3];
-	}
-	var this1 = new Uint8Array(4);
-	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
-};
-framework_codec_Texture.readTextureI8 = function(src,header,noSwizzle) {
-	var width = header.width;
-	var height = header.height;
-	var format = header.format;
-	var imageSize = width * height;
-	var this1 = new Uint8Array(imageSize);
-	var pixels = this1;
-	src.position = 32;
-	var bitsleft = 64;
-	var currentRow = 0;
-	var bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-	var bits1 = bitSrc[0];
-	var bits2 = bitSrc[1];
-	var _g = 0;
-	var _g1 = imageSize;
-	while(_g < _g1) {
-		var j = _g++;
-		if(j > 0 && j % width != 0) {
-			if(!noSwizzle) {
-				++currentRow;
-			}
-		}
-		if(bitsleft <= 0) {
-			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-			bits1 = bitSrc[0];
-			bits2 = bitSrc[1];
-			bitsleft = 64;
-		}
-		var pix = 0;
-		if(bitsleft <= 32) {
-			pix = (bits2 & -16777216) >>> 24;
-			bits2 <<= 8;
-			bitsleft -= 8;
-		} else {
-			pix = (bits1 & -16777216) >>> 24;
-			bits1 <<= 8;
-			bitsleft -= 8;
-		}
-		pixels[j] = pix;
-	}
-	var this1 = new Uint8Array(4);
-	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
-};
-framework_codec_Texture.readTextureI4 = function(src,header,noSwizzle) {
-	var width = header.width;
-	var height = header.height;
-	var format = header.format;
-	var imageSize = width * height;
-	var this1 = new Uint8Array(imageSize);
-	var pixels = this1;
-	src.position = 32;
-	var bitsLeft = 64;
-	var currentRow = 0;
-	var bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-	var bits1 = bitSrc[0];
-	var bits2 = bitSrc[1];
-	var _g = 0;
-	var _g1 = imageSize;
-	while(_g < _g1) {
-		var i = _g++;
-		if(i > 0 && i % width == 0) {
-			if(!noSwizzle) {
-				++currentRow;
-			}
-		}
-		if(bitsLeft <= 0) {
-			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-			bits1 = bitSrc[0];
-			bits2 = bitSrc[1];
-			bitsLeft = 64;
-		}
-		var pix = 0;
-		if(bitsLeft <= 32) {
-			pix = (bits2 & -268435456) >>> 28;
-			bits2 <<= 4;
-			bitsLeft -= 4;
-		} else {
-			pix = (bits1 & -268435456) >>> 28;
-			bits1 <<= 4;
-			bitsLeft -= 4;
-		}
-		pixels[i] = framework_codec_Texture.CLUT4BIT[pix];
-	}
-	var this1 = new Uint8Array(4);
-	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
-};
-framework_codec_Texture.readTextureIA16 = function(src,header,noSwizzle) {
-	var width = header.width;
-	var height = header.height;
-	var format = header.format;
-	var imageSize = width * height;
-	var this1 = new Uint8Array(imageSize * 2);
-	var pixels = this1;
-	src.position = 32;
-	var bitsLeft = 64;
-	var currentRow = 0;
-	var bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-	var bits1 = bitSrc[0];
-	var bits2 = bitSrc[1];
-	var _g = 0;
-	var _g1 = imageSize;
-	while(_g < _g1) {
-		var j = _g++;
-		if(j > 0 && j % width != 0) {
-			if(!noSwizzle) {
-				++currentRow;
-			}
-		}
-		if(bitsLeft <= 0) {
-			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-			bits1 = bitSrc[0];
-			bits2 = bitSrc[1];
-			bitsLeft = 64;
-		}
-		var pix = 0;
-		var a = 0;
-		if(bitsLeft <= 32) {
-			pix = (bits2 & -16777216) >>> 24;
-			a = (bits2 & 16711680) >>> 16;
-			bits2 <<= 16;
-			bitsLeft -= 16;
-		} else {
-			pix = (bits1 & -16777216) >>> 24;
-			a = (bits1 & 16711680) >>> 16;
-			bits1 <<= 16;
-			bitsLeft -= 16;
-		}
-		var base = j * 2;
-		pixels[base] = pix;
-		pixels[base + 1] = a;
-	}
-	var this1 = new Uint8Array(4);
-	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
-};
-framework_codec_Texture.readTextureIA8 = function(src,header,noSwizzle) {
-	var width = header.width;
-	var height = header.height;
-	var format = header.format;
-	var imageSize = width * height;
-	var this1 = new Uint8Array(imageSize * 2);
-	var pixels = this1;
-	src.position = 32;
-	var bitsLeft = 64;
-	var currentRow = 0;
-	var bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-	var bits1 = bitSrc[0];
-	var bits2 = bitSrc[1];
-	var _g = 0;
-	var _g1 = imageSize;
-	while(_g < _g1) {
-		var j = _g++;
-		if(j > 0 && j % width != 0) {
-			if(!noSwizzle) {
-				++currentRow;
-			}
-		}
-		if(bitsLeft <= 0) {
-			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-			bits1 = bitSrc[0];
-			bits2 = bitSrc[1];
-			bitsLeft = 64;
-		}
-		var pix = 0;
-		var r = 0;
-		var g = 0;
-		var b = 0;
-		var a = 0;
-		if(bitsLeft <= 32) {
-			pix = (bits2 & -268435456) >>> 28;
-			a = (bits2 & 251658240) >>> 24;
-			bits2 <<= 8;
-			r = framework_codec_Texture.CLUT4BIT[pix];
-			bitsLeft -= 8;
-		} else {
-			pix = (bits1 & -268435456) >>> 28;
-			a = (bits1 & 251658240) >>> 24;
-			bits1 <<= 8;
-			r = framework_codec_Texture.CLUT4BIT[pix];
-			bitsLeft -= 8;
-		}
-		var base = j * 2;
-		pixels[base] = r;
-		pixels[base + 1] = framework_codec_Texture.CLUT4BIT[a];
-	}
-	var this1 = new Uint8Array(4);
-	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
-};
-framework_codec_Texture.readTextureIA4 = function(src,header,noSwizzle) {
-	var width = header.width;
-	var height = header.height;
-	var format = header.format;
-	var imageSize = width * height;
-	var this1 = new Uint8Array(imageSize * 4);
-	var pixels = this1;
-	src.position = 32;
-	var bitsLeft = 64;
-	var currentRow = 0;
-	var bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-	var bits1 = bitSrc[0];
-	var bits2 = bitSrc[1];
-	var _g = 0;
-	var _g1 = imageSize;
-	while(_g < _g1) {
-		var j = _g++;
-		if(j > 0 && j % width != 0) {
-			if(!noSwizzle) {
-				++currentRow;
-			}
-		}
-		if(bitsLeft <= 0) {
-			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-			bits1 = bitSrc[0];
-			bits2 = bitSrc[1];
-			bitsLeft = 64;
-		}
-		var pix = 0;
-		var r = 0;
-		var g = 0;
-		var b = 0;
-		var a = 0;
-		if(bitsLeft <= 32) {
-			pix = (bits2 & -268435456) >>> 28;
-			a = pix & 1;
-			pix >>>= 1;
-			bits2 <<= 4;
-			r = framework_codec_Texture.CLUT4BIT[pix * 2];
-			bitsLeft -= 4;
-		} else {
-			pix = (bits1 & -268435456) >>> 28;
-			a = pix & 1;
-			pix >>>= 1;
-			bits1 <<= 4;
-			r = framework_codec_Texture.CLUT4BIT[pix * 2];
-			bitsLeft -= 4;
-		}
-		var base = j * 2;
-		pixels[base] = r;
-		pixels[base + 1] = a * 255;
-	}
-	var this1 = new Uint8Array(4);
-	return { format : format, palette : this1, width : width, height : height, pixels : pixels};
-};
-framework_codec_Texture.readTextureCI4 = function(src,header,noSwizzle) {
-	var width = header.width;
-	var height = header.height;
-	var format = header.format;
-	var imageSize = width * height;
-	var this1 = new Uint8Array(imageSize);
-	var pixels = this1;
-	src.position = 32;
-	var bitsLeft = 64;
-	var currentRow = 0;
-	var bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-	var bits1 = bitSrc[0];
-	var bits2 = bitSrc[1];
-	var _g = 0;
-	var _g1 = imageSize;
-	while(_g < _g1) {
-		var j = _g++;
-		if(j > 0 && j % width != 0) {
-			if(!noSwizzle) {
-				++currentRow;
-			}
-		}
-		if(bitsLeft <= 0) {
-			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-			bits1 = bitSrc[0];
-			bits2 = bitSrc[1];
-			bitsLeft = 64;
-		}
-		var pix = 0;
-		if(bitsLeft <= 32) {
-			pix = (bits2 & -268435456) >>> 28;
-			bits2 <<= 4;
-			bitsLeft -= 4;
-		} else {
-			pix = (bits1 & -268435456) >>> 28;
-			bits1 <<= 4;
-			bitsLeft -= 4;
-		}
-		pixels[j] = pix;
-	}
-	var palette = framework_codec_Texture.readPalette(src,16);
-	return { format : format, palette : palette, width : width, height : height, pixels : pixels};
-};
-framework_codec_Texture.readTextureCI8 = function(src,header,noSwizzle) {
-	var width = header.width;
-	var height = header.height;
-	var format = header.format;
-	var imageSize = width * height;
-	var this1 = new Uint8Array(imageSize);
-	var pixels = this1;
-	src.position = 32;
-	var bitsLeft = 64;
-	var currentRow = 0;
-	var bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-	var bits1 = bitSrc[0];
-	var bits2 = bitSrc[1];
-	var _g = 0;
-	var _g1 = imageSize;
-	while(_g < _g1) {
-		var j = _g++;
-		if(j > 0 && j % width != 0) {
-			if(!noSwizzle) {
-				++currentRow;
-			}
-		}
-		if(bitsLeft <= 0) {
-			bitSrc = framework_codec_Texture.deSwizzleBits64(src,currentRow);
-			bits1 = bitSrc[0];
-			bits2 = bitSrc[1];
-			bitsLeft = 64;
-		}
-		var pix = 0;
-		if(bitsLeft <= 32) {
-			pix = (bits2 & -16777216) >>> 28;
-			bits2 <<= 8;
-			bitsLeft -= 8;
-		} else {
-			pix = (bits1 & -16777216) >>> 28;
-			bits1 <<= 8;
-			bitsLeft -= 8;
-		}
-		pixels[j] = pix;
-	}
-	var palette = framework_codec_Texture.readPalette(src,16);
-	return { format : format, palette : palette, width : width, height : height, pixels : pixels};
-};
-framework_codec_Texture.convertToImage = function(texture,forceOpacity) {
-	var img = new ImageData(texture.width,texture.height);
-	var size = texture.width * texture.height;
-	var pal = texture.palette;
-	var f = texture.format;
-	if(f == 7 || f == 8) {
-		if(forceOpacity) {
-			var _g = 0;
-			var _g1 = size;
-			while(_g < _g1) {
-				var i = _g++;
-				var base = i * 4;
-				var basePal = texture.pixels[i] * 4;
-				img.data[base] = pal[basePal];
-				img.data[base + 1] = pal[basePal + 1];
-				img.data[base + 2] = pal[basePal + 2];
-				img.data[base + 3] = 255;
-			}
-		} else {
-			var _g = 0;
-			var _g1 = size;
-			while(_g < _g1) {
-				var i = _g++;
-				var base = i * 4;
-				var basePal = texture.pixels[i] * 4;
-				img.data[base] = pal[basePal];
-				img.data[base + 1] = pal[basePal + 1];
-				img.data[base + 2] = pal[basePal + 2];
-				img.data[base + 3] = pal[basePal + 3];
-			}
-		}
-	} else if(f == 0 || f == 1) {
-		if(forceOpacity) {
-			var _g = 0;
-			var _g1 = size;
-			while(_g < _g1) {
-				var i = _g++;
-				var base = i * 4;
-				img.data[base] = texture.pixels[base];
-				img.data[base + 1] = texture.pixels[base + 1];
-				img.data[base + 2] = texture.pixels[base + 2];
-				img.data[base + 3] = 255;
-			}
-		} else {
-			var _g = 0;
-			var _g1 = size;
-			while(_g < _g1) {
-				var i = _g++;
-				var base = i * 4;
-				img.data[base] = texture.pixels[base];
-				img.data[base + 1] = texture.pixels[base + 1];
-				img.data[base + 2] = texture.pixels[base + 2];
-				img.data[base + 3] = texture.pixels[base + 3];
-			}
-		}
-	} else if(f == 2 || f == 3) {
-		var _g = 0;
-		var _g1 = size;
-		while(_g < _g1) {
-			var i = _g++;
-			var p = texture.pixels[i];
-			var base = i * 4;
-			img.data[base] = p;
-			img.data[base + 1] = p;
-			img.data[base + 2] = p;
-			img.data[base + 3] = 255;
-		}
-	} else if(f == 4 || f == 5 || f == 6) {
-		if(forceOpacity) {
-			var _g = 0;
-			var _g1 = size;
-			while(_g < _g1) {
-				var i = _g++;
-				var base0 = i * 2;
-				var p = texture.pixels[base0];
-				var base = i * 4;
-				img.data[base] = p;
-				img.data[base + 1] = p;
-				img.data[base + 2] = p;
-				img.data[base + 3] = 255;
-			}
-		} else {
-			var _g = 0;
-			var _g1 = size;
-			while(_g < _g1) {
-				var i = _g++;
-				var base0 = i * 2;
-				var p = texture.pixels[base0];
-				var pa = texture.pixels[base0 + 1];
-				var base = i * 4;
-				img.data[base] = p;
-				img.data[base + 1] = p;
-				img.data[base + 2] = p;
-				img.data[base + 3] = pa;
-			}
-		}
-	}
-	return img;
-};
-var framework_dev_ManifestConverter = function() { };
-framework_dev_ManifestConverter.__name__ = true;
-framework_dev_ManifestConverter.update2 = function() {
+var dev_ManifestConverter = function() { };
+dev_ManifestConverter.__name__ = true;
+dev_ManifestConverter.update2 = function() {
 	var mf = Main.ROM.manifest;
 	var _g = 0;
 	var _g1 = mf.resources.length;
@@ -1407,16 +262,40 @@ framework_dev_ManifestConverter.update2 = function() {
 	}
 	Main.exportManifest();
 };
-var framework_editor_EditorState = function() {
+dev_ManifestConverter.update3 = function() {
+	var mf = Main.ROM.manifest;
+	var _g = 0;
+	var _g1 = mf.resources.length;
+	while(_g < _g1) {
+		var i = _g++;
+		var res = mf.resources[i].resInfo;
+		Reflect.deleteField(res.formatOVR,"forceOpacity");
+	}
+	Main.exportManifest();
+};
+dev_ManifestConverter.findNonInterlaced = function(src) {
+	var res = src.resources;
+	var _g = 0;
+	var _g1 = src.resources.length;
+	while(_g < _g1) {
+		var i = _g++;
+		var curr = res[i];
+		var ovr = curr.resInfo.formatOVR;
+		if(ovr.noSwizzle) {
+			$global.console.log(JSON.stringify(curr));
+		}
+	}
+};
+var editor_EditorState = function() {
 	this.currTex = 0;
 };
-framework_editor_EditorState.__name__ = true;
-var framework_editor_FileExporter = function() { };
-framework_editor_FileExporter.__name__ = true;
-framework_editor_FileExporter.exportZip = function(src,format) {
+editor_EditorState.__name__ = true;
+var editor_FileExporter = function() { };
+editor_FileExporter.__name__ = true;
+editor_FileExporter.exportZip = function(src,format) {
 	var zipfile = new JSZip();
+	var warnlog = "WARNING! TEXTURE EXPORT STILL WIP!\n";
 	var binfile = src.bin;
-	var bindat = src.bin.data;
 	var exportName = src.manifest.fileName;
 	var _g = 0;
 	var _g1 = src.manifest.resources.length;
@@ -1424,7 +303,7 @@ framework_editor_FileExporter.exportZip = function(src,format) {
 		var i = _g++;
 		var curr = src.manifest.resources[i];
 		var ovr = curr.resInfo.formatOVR;
-		var tName = curr.path;
+		var tName = "TEX_" + i;
 		var texInfo0 = binfile.getItem(i);
 		var texData = binfile.getFile(i);
 		if(curr.resInfo.frames.length > 0) {
@@ -1434,41 +313,92 @@ framework_editor_FileExporter.exportZip = function(src,format) {
 				var j = _g2++;
 				var texInfo = texInfo0.resources[j];
 				if(format == 0) {
-					var texFile = lib_Rarezip.decompress(texData[j]);
-					zipfile.file((tName + "frame_" + j + ".dptf"),texFile.readUint8Array(texFile.get_length()));
+					var texFile = lib_dinoplanet_Rarezip.decompress(texData[j]);
+					var tmp = tName + "_frame_" + j + ".dptf";
+					var this1 = new Uint8Array(texFile.length);
+					var out = this1;
+					var _g4 = 0;
+					var _g5 = texFile.length;
+					while(_g4 < _g5) {
+						var i1 = _g4++;
+						out[i1] = texFile.b[i1];
+					}
+					zipfile.file(tmp,out);
 				} else if(format == 1) {
-					var texFile1 = framework_codec_Texture.decodeTexture(texData[j],texData[j].get_length(),ovr);
-					var forceOpacity = ovr.forceOpacity;
-					var pngFile = framework_editor_FileExporter.exportPNG(texFile1,forceOpacity);
-					zipfile.file((tName + "frame_" + j + ".png"),pngFile);
+					var texFile1 = lib_dinoplanet_Texture.decodeTexture(texData[j],texData[j].length,ovr);
+					var forceOpacity = texFile1.format.opaque;
+					if(forceOpacity) {
+						warnlog += tName + "_frame_" + j + " has the opaque flag set. \n";
+						warnlog += "it may appear blank in image editors if transparency is enabled.\n";
+					}
+					if(texFile1.format.pixelFormat == 1 && texFile1.height == 44) {
+						warnlog += tName + "_frame_" + j + " contains extra data that cannot yet be decoded.\n";
+						warnlog += "please export as raw to ensure losslessness.\n";
+					}
+					forceOpacity = false;
+					var pngFile = editor_FileExporter.exportPNG(texFile1,forceOpacity);
+					zipfile.file((tName + "_frame_" + j + ".png"),pngFile);
 				} else {
-					var texFile2 = lib_Rarezip.decompress(texData[j]);
-					zipfile.file((tName + "frame_" + j + ".dptf"),texFile2.readUint8Array(texFile2.get_length()));
+					var texFile2 = lib_dinoplanet_Rarezip.decompress(texData[j]);
+					var tmp1 = tName + "_frame_" + j + ".dptf";
+					var this2 = new Uint8Array(texFile2.length);
+					var out1 = this2;
+					var _g6 = 0;
+					var _g7 = texFile2.length;
+					while(_g6 < _g7) {
+						var i2 = _g6++;
+						out1[i2] = texFile2.b[i2];
+					}
+					zipfile.file(tmp1,out1);
 				}
 			}
 		} else {
 			var texInfo1 = texInfo0.resources[0];
-			bindat.position = texInfo1.ofs;
 			if(format == 0) {
-				var texFile3 = lib_Rarezip.decompress(texData[0]);
-				zipfile.file(tName,texFile3.readUint8Array(texFile3.get_length()));
+				var texFile3 = lib_dinoplanet_Rarezip.decompress(texData[0]);
+				var this3 = new Uint8Array(texFile3.length);
+				var out2 = this3;
+				var _g8 = 0;
+				var _g9 = texFile3.length;
+				while(_g8 < _g9) {
+					var i3 = _g8++;
+					out2[i3] = texFile3.b[i3];
+				}
+				zipfile.file(tName,out2);
 			} else if(format == 1) {
-				var texFile4 = framework_codec_Texture.decodeTexture(texData[0],texData[0].tgt.length,ovr);
-				var forceOpacity1 = ovr.forceOpacity;
-				var pngFile1 = framework_editor_FileExporter.exportPNG(texFile4,forceOpacity1);
+				var texFile4 = lib_dinoplanet_Texture.decodeTexture(texData[0],texData[0].length,ovr);
+				var forceOpacity1 = texFile4.format.opaque;
+				if(forceOpacity1) {
+					warnlog += tName + " has the opaque flag set. \n";
+					warnlog += "it may appear blank in image editors if transparency is enabled.\n";
+				}
+				if(texFile4.format.pixelFormat == 1 && texFile4.height == 44) {
+					warnlog += tName + " contains extra data that cannot yet be decoded.\n";
+					warnlog += "please export as raw to ensure losslessness.\n";
+				}
+				forceOpacity1 = false;
+				var pngFile1 = editor_FileExporter.exportPNG(texFile4,forceOpacity1);
 				var fName = tName.split(".")[0];
 				zipfile.file((fName + ".png"),pngFile1);
 			} else {
-				var texFile5 = lib_Rarezip.decompress(texData[0]);
-				zipfile.file(tName,texFile5.readUint8Array(texFile5.get_length()));
+				var texFile5 = lib_dinoplanet_Rarezip.decompress(texData[0]);
+				var this4 = new Uint8Array(texFile5.length);
+				var out3 = this4;
+				var _g10 = 0;
+				var _g11 = texFile5.length;
+				while(_g10 < _g11) {
+					var i4 = _g10++;
+					out3[i4] = texFile5.b[i4];
+				}
+				zipfile.file(tName,out3);
 			}
 		}
 	}
-	zipfile.file("manifest.json",JSON.stringify(src.manifest));
+	zipfile.file("WARNINGS.txt",warnlog);
 	zipfile.generateAsync({type:"blob",compression:"DEFLATE"}).then(function (blob) {saveAs(blob, exportName + ".zip");});
 };
-framework_editor_FileExporter.exportPNG = function(t,forceOpacity,fileName) {
-	var pngBin = framework_codec_PngTool.textureToPNG(t);
+editor_FileExporter.exportPNG = function(t,forceOpacity,fileName) {
+	var pngBin = lib_PngTool.textureToPNG(t);
 	var this1 = new Uint8Array(pngBin.length);
 	var out = this1;
 	var _g = 0;
@@ -1485,6 +415,8 @@ framework_editor_FileExporter.exportPNG = function(t,forceOpacity,fileName) {
 	}
 	return pngArr;
 };
+var editor_ManifestDB = function() { };
+editor_ManifestDB.__name__ = true;
 var haxe_Exception = function(message,previous,native) {
 	Error.call(this,message);
 	this.message = message;
@@ -1636,6 +568,15 @@ haxe_io_Input.prototype = {
 		}
 		return s;
 	}
+	,readUInt16: function() {
+		var ch1 = this.readByte();
+		var ch2 = this.readByte();
+		if(this.bigEndian) {
+			return ch2 | ch1 << 8;
+		} else {
+			return ch1 | ch2 << 8;
+		}
+	}
 	,readInt32: function() {
 		var ch1 = this.readByte();
 		var ch2 = this.readByte();
@@ -1708,7 +649,10 @@ haxe_io_Bytes.ofData = function(b) {
 	return new haxe_io_Bytes(b);
 };
 haxe_io_Bytes.prototype = {
-	blit: function(pos,src,srcpos,len) {
+	get: function(pos) {
+		return this.b[pos];
+	}
+	,blit: function(pos,src,srcpos,len) {
 		if(pos < 0 || srcpos < 0 || len < 0 || pos + len > this.length || srcpos + len > src.length) {
 			throw haxe_Exception.thrown(haxe_io_Error.OutsideBounds);
 		}
@@ -1725,6 +669,30 @@ haxe_io_Bytes.prototype = {
 			var i = _g++;
 			this.b[pos++] = value;
 		}
+	}
+	,getUInt16: function(pos) {
+		if(this.data == null) {
+			this.data = new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);
+		}
+		return this.data.getUint16(pos,true);
+	}
+	,setUInt16: function(pos,v) {
+		if(this.data == null) {
+			this.data = new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);
+		}
+		this.data.setUint16(pos,v,true);
+	}
+	,getInt32: function(pos) {
+		if(this.data == null) {
+			this.data = new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);
+		}
+		return this.data.getInt32(pos,true);
+	}
+	,setInt32: function(pos,v) {
+		if(this.data == null) {
+			this.data = new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);
+		}
+		this.data.setInt32(pos,v,true);
 	}
 	,getString: function(pos,len,encoding) {
 		if(pos < 0 || len < 0 || pos + len > this.length) {
@@ -1850,7 +818,16 @@ var haxe_io_BytesInput = function(b,pos,len) {
 haxe_io_BytesInput.__name__ = true;
 haxe_io_BytesInput.__super__ = haxe_io_Input;
 haxe_io_BytesInput.prototype = $extend(haxe_io_Input.prototype,{
-	readByte: function() {
+	set_position: function(p) {
+		if(p < 0) {
+			p = 0;
+		} else if(p > this.totlen) {
+			p = this.totlen;
+		}
+		this.len = this.totlen - p;
+		return this.pos = p;
+	}
+	,readByte: function() {
 		if(this.len == 0) {
 			throw haxe_Exception.thrown(new haxe_io_Eof());
 		}
@@ -1879,6 +856,7 @@ haxe_io_BytesInput.prototype = $extend(haxe_io_Input.prototype,{
 		this.len -= len;
 		return len;
 	}
+	,__properties__: $extend(haxe_io_Input.prototype.__properties__,{set_position:"set_position"})
 });
 var haxe_io_Output = function() { };
 haxe_io_Output.__name__ = true;
@@ -2085,53 +1063,1949 @@ js_Boot.__string_rec = function(o,s) {
 		return String(o);
 	}
 };
-var lib_Rarezip = function() { };
-lib_Rarezip.__name__ = true;
-lib_Rarezip.compress = function(src) {
-	var size = src.get_length();
-	var compressed = new Zlib.RawDeflate(src).compress();
-	var out = new framework_ByteThingyWhatToNameIt(new haxe_io_Bytes(new ArrayBuffer(compressed.length + 5)),false);
-	out.writeUint32(size,true);
-	out.writeUint8(9);
-	out.writeUint8Array(compressed);
-	out.position = 0;
+var lib_ByteThingyWhatToNameIt = function(src,endian) {
+	this.tgt = src;
+	this.position = 0;
+	this.littleEndian = endian;
+};
+lib_ByteThingyWhatToNameIt.__name__ = true;
+lib_ByteThingyWhatToNameIt.prototype = {
+	get_length: function() {
+		return this.tgt.length;
+	}
+	,readUint8: function() {
+		var out = this.tgt.b[this.position];
+		this.position++;
+		return out;
+	}
+	,readUint16: function(endian) {
+		var a = this.tgt.b[this.position];
+		var b = this.tgt.b[this.position + 1];
+		if(endian || this.littleEndian) {
+			this.position += 2;
+			return (b << 8) + a;
+		}
+		this.position += 2;
+		return (a << 8) + b;
+	}
+	,readUint32: function(endian) {
+		var a = this.tgt.b[this.position];
+		var b = this.tgt.b[this.position + 1];
+		var c = this.tgt.b[this.position + 2];
+		var d = this.tgt.b[this.position + 3];
+		if(endian || this.littleEndian) {
+			this.position += 4;
+			return (d << 24) + (c << 16) + (b << 8) + a;
+		}
+		this.position += 4;
+		return (a << 24) + (b << 16) + (c << 8) + d;
+	}
+	,readUint24: function(endian) {
+		var a = this.tgt.b[this.position];
+		var b = this.tgt.b[this.position + 1];
+		var c = this.tgt.b[this.position + 2];
+		if(endian || this.littleEndian) {
+			this.position += 3;
+			return (c << 16) + (b << 8) + a;
+		}
+		this.position += 3;
+		return (a << 16) + (b << 8) + c;
+	}
+	,readInt8: function() {
+		var n = this.readUint8();
+		var flag = (n & 128) >> 7 == 1;
+		if(flag) {
+			n |= util_Util.signExtension[24];
+		}
+	}
+	,readInt16: function(endian) {
+		var n = this.readUint16(endian);
+		var flag = (n & 32768) >> 15 == 1;
+		if(flag) {
+			n |= util_Util.signExtension[16];
+		}
+		return n;
+	}
+	,readInt32: function(endian) {
+		var n = this.readUint32(endian);
+		var flag = (n & -2147483648) >> 31 == 1;
+		if(flag) {
+			n |= util_Util.signExtension[0];
+		}
+		return n;
+	}
+	,readInt24: function(endian) {
+		var n = this.readUint24(endian);
+		var flag = (n & 8388608) >> 23 == 1;
+		if(flag) {
+			n |= util_Util.signExtension[8];
+		}
+		return n;
+	}
+	,readUint8Array: function(length) {
+		var this1 = new Uint8Array(length);
+		var out = this1;
+		var _g = 0;
+		var _g1 = length;
+		while(_g < _g1) {
+			var i = _g++;
+			out[i] = this.readUint8();
+		}
+		return out;
+	}
+	,readByteThingy: function(length,endian) {
+		var outBytes = new haxe_io_Bytes(new ArrayBuffer(length));
+		outBytes.blit(0,this.tgt,this.position,length);
+		this.position += length;
+		return new lib_ByteThingyWhatToNameIt(outBytes,endian);
+	}
+	,readUint16Array: function(length,endian) {
+		var this1 = new Uint16Array(length);
+		var out = this1;
+		var _g = 0;
+		var _g1 = length;
+		while(_g < _g1) {
+			var i = _g++;
+			out[i] = this.readUint16(endian);
+		}
+		return out;
+	}
+	,readUint32Array: function(length,endian) {
+		var this1 = new Uint32Array(length);
+		var out = this1;
+		var _g = 0;
+		var _g1 = length;
+		while(_g < _g1) {
+			var i = _g++;
+			out[i] = this.readUint32(endian);
+		}
+		return out;
+	}
+	,readBytes: function(length) {
+		var out = new haxe_io_Bytes(new ArrayBuffer(length));
+		out.blit(0,this.tgt,this.position,length);
+		return out;
+	}
+	,writeUint8: function(v) {
+		this.tgt.b[this.position] = v & 255;
+		this.position++;
+	}
+	,writeUint16: function(v,endian) {
+		var a = (v & 65280) >> 8;
+		var b = v & 255;
+		if(endian || this.littleEndian) {
+			this.tgt.b[this.position] = b;
+			this.tgt.b[this.position + 1] = a;
+		} else {
+			this.tgt.b[this.position] = a;
+			this.tgt.b[this.position + 1] = b;
+		}
+		this.position += 2;
+	}
+	,writeUint32: function(v,endian) {
+		var a = (v & -16777216) >> 24;
+		var b = (v & 16711680) >> 16;
+		var c = (v & 65280) >> 8;
+		var d = v & 255;
+		if(endian || this.littleEndian) {
+			this.tgt.b[this.position] = d;
+			this.tgt.b[this.position + 1] = c;
+			this.tgt.b[this.position + 2] = b;
+			this.tgt.b[this.position + 3] = a;
+		} else {
+			this.tgt.b[this.position] = a;
+			this.tgt.b[this.position + 1] = b;
+			this.tgt.b[this.position + 2] = c;
+			this.tgt.b[this.position + 3] = d;
+		}
+		this.position += 4;
+	}
+	,writeUint24: function(v,endian) {
+		var a = (v & 16711680) >> 16;
+		var b = (v & 65280) >> 8;
+		var c = v & 255;
+		if(endian || this.littleEndian) {
+			this.tgt.b[this.position] = c;
+			this.tgt.b[this.position + 1] = b;
+			this.tgt.b[this.position + 2] = a;
+		} else {
+			this.tgt.b[this.position] = a;
+			this.tgt.b[this.position + 1] = b;
+			this.tgt.b[this.position + 2] = c;
+		}
+		this.position += 3;
+	}
+	,writeUint8Array: function(src) {
+		var _g = 0;
+		var _g1 = src.length;
+		while(_g < _g1) {
+			var i = _g++;
+			this.writeUint8(src[i]);
+		}
+	}
+	,__properties__: {get_length:"get_length"}
+};
+var lib_Deflate = function() { };
+lib_Deflate.__name__ = true;
+lib_Deflate.run = function(b,level) {
+	if(level == null) {
+		level = 9;
+	}
+	var length = b.length;
+	var this1 = new Uint8Array(length);
+	var out = this1;
+	var _g = 0;
+	var _g1 = length;
+	while(_g < _g1) {
+		var i = _g++;
+		out[i] = b.b[i];
+	}
+	var raw = out;
+	var src = pako.deflateRaw(raw);
+	var out = new haxe_io_Bytes(new ArrayBuffer(src.length));
+	var _g = 0;
+	var _g1 = src.length;
+	while(_g < _g1) {
+		var i = _g++;
+		out.b[i] = src[i];
+	}
+	var out1 = out;
+	return out1;
+};
+var lib_Inflate = function() { };
+lib_Inflate.__name__ = true;
+lib_Inflate.run = function(bytes) {
+	console.log("hello from js decompressor!");
+	var length = bytes.length;
+	var this1 = new Uint8Array(length);
+	var out = this1;
+	var _g = 0;
+	var _g1 = length;
+	while(_g < _g1) {
+		var i = _g++;
+		out[i] = bytes.b[i];
+	}
+	var compressed = out;
+	var src = pako.inflateRaw(compressed);
+	var out = new haxe_io_Bytes(new ArrayBuffer(src.length));
+	var _g = 0;
+	var _g1 = src.length;
+	while(_g < _g1) {
+		var i = _g++;
+		out.b[i] = src[i];
+	}
 	return out;
 };
-lib_Rarezip.decompress = function(src) {
-	var size = src.readUint32(true);
-	var level = src.readUint8();
-	var compressedSize = src.get_length() - 5;
-	var compressed = src.readUint8Array(compressedSize);
-	var decompressed = new Zlib.RawInflate(compressed).decompress();
+var lib_PngTool = function() { };
+lib_PngTool.__name__ = true;
+lib_PngTool.BGRA = function(dat) {
+	var p = 0;
+	var _g = 0;
+	var _g1 = dat.length >> 2;
+	while(_g < _g1) {
+		var i = _g++;
+		var r = dat.b[p];
+		var g = dat.b[p + 1];
+		var b = dat.b[p + 2];
+		dat.b[p++] = b;
+		dat.b[p++] = g;
+		dat.b[p++] = r;
+		++p;
+	}
+};
+lib_PngTool.textureToPNG = function(src) {
+	switch(src.format.pixelFormat) {
+	case 0:
+		var img = lib_dinoplanet_Texture.convertToImage(src,false);
+		var src1 = img.data;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var dat = out;
+		lib_PngTool.BGRA(dat);
+		var png = lib_image_png_Tools.build32BGRA(src.width,src.height,dat);
+		var pngB = new haxe_io_BytesOutput();
+		new lib_image_png_Writer(pngB).write(png);
+		return pngB.getBytes();
+	case 1:
+		var img = lib_dinoplanet_Texture.convertToImage(src,false);
+		var src1 = img.data;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var dat = out;
+		lib_PngTool.BGRA(dat);
+		var png = lib_image_png_Tools.build32BGRA(src.width,src.height,dat);
+		var pngB = new haxe_io_BytesOutput();
+		new lib_image_png_Writer(pngB).write(png);
+		return pngB.getBytes();
+	case 2:
+		var src1 = src.pixels;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var dat = out;
+		var png = lib_image_png_Tools.buildGrey(src.width,src.height,dat);
+		var pngB = new haxe_io_BytesOutput();
+		new lib_image_png_Writer(pngB).write(png);
+		return pngB.getBytes();
+	case 3:
+		var src1 = src.pixels;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var dat = out;
+		var png = lib_image_png_Tools.buildGrey(src.width,src.height,dat);
+		var pngB = new haxe_io_BytesOutput();
+		new lib_image_png_Writer(pngB).write(png);
+		return pngB.getBytes();
+	case 4:
+		var img = lib_dinoplanet_Texture.convertToImage(src,false);
+		var src1 = img.data;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var dat = out;
+		lib_PngTool.BGRA(dat);
+		var png = lib_image_png_Tools.build32BGRA(src.width,src.height,dat);
+		var pngB = new haxe_io_BytesOutput();
+		new lib_image_png_Writer(pngB).write(png);
+		return pngB.getBytes();
+	case 5:
+		var img = lib_dinoplanet_Texture.convertToImage(src,false);
+		var src1 = img.data;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var dat = out;
+		lib_PngTool.BGRA(dat);
+		var png = lib_image_png_Tools.build32BGRA(src.width,src.height,dat);
+		var pngB = new haxe_io_BytesOutput();
+		new lib_image_png_Writer(pngB).write(png);
+		return pngB.getBytes();
+	case 6:
+		var img = lib_dinoplanet_Texture.convertToImage(src,false);
+		var src1 = img.data;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var dat = out;
+		lib_PngTool.BGRA(dat);
+		var png = lib_image_png_Tools.build32BGRA(src.width,src.height,dat);
+		var pngB = new haxe_io_BytesOutput();
+		new lib_image_png_Writer(pngB).write(png);
+		return pngB.getBytes();
+	case 7:
+		var src1 = src.pixels;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var dat = out;
+		var src1 = src.palette;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var datPal = out;
+		var png = lib_image_png_Tools.buildIndexedWithTransparency(src.width,src.height,dat,datPal);
+		var pngB = new haxe_io_BytesOutput();
+		new lib_image_png_Writer(pngB).write(png);
+		return pngB.getBytes();
+	case 8:
+		var src1 = src.pixels;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var dat = out;
+		var src1 = src.pixels;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var dat = out;
+		var src1 = src.palette;
+		var out = new haxe_io_Bytes(new ArrayBuffer(src1.length));
+		var _g = 0;
+		var _g1 = src1.length;
+		while(_g < _g1) {
+			var i = _g++;
+			out.b[i] = src1[i];
+		}
+		var datPal = out;
+		var png = lib_image_png_Tools.buildIndexedWithTransparency(src.width,src.height,dat,datPal);
+		var pngB = new haxe_io_BytesOutput();
+		new lib_image_png_Writer(pngB).write(png);
+		return pngB.getBytes();
+	}
+	return new haxe_io_Bytes(new ArrayBuffer(256));
+};
+lib_PngTool.PNGToTexture = function(src) {
+	return null;
+};
+var lib_dinoplanet_Model = function() { };
+lib_dinoplanet_Model.__name__ = true;
+lib_dinoplanet_Model.readModel = function(dat) {
+	var out = { datBytes : dat, header : lib_dinoplanet_Model.readModelHeader(dat), textures : []};
+	lib_dinoplanet_Model.readModelTextureList(out);
+	return out;
+};
+lib_dinoplanet_Model.readModelHeader = function(dat) {
+	var stream = new haxe_io_BytesInput(dat,0);
+	stream.set_bigEndian(true);
+	var out = { PTR_texture : stream.readInt32(), PTR_vert : stream.readInt32(), PTR_face : stream.readInt32(), PTR_F3DtriOps : stream.readInt32(), UNK_0x10 : stream.readInt32(), PTR_vertGroupOffset : stream.readInt32(), PTR_vertGroup : stream.readInt32(), PTR_blendShape : stream.readInt32(), PTR_joint : stream.readInt32(), UNK_0x24 : stream.readInt32(), PTR_hitbox : stream.readInt32(), PTR_edgeVector : stream.readInt32(), UNK_0x30 : stream.readInt32(), PTR_collisionBox : stream.readInt32(), PTR_F3DDrawMode : stream.readInt32(), PTR_eyeAnim : stream.readInt32(), UNK_0x40 : stream.readInt32(), UNK_0x44 : stream.readInt32(), UNK_0x48 : stream.readInt32(), UNK_0x4c : stream.readInt32(), PTR_unk0x50 : stream.readInt32(), PTR_unk0x54 : stream.readInt32(), byteLength : stream.readInt32(), UNK_0x5c : stream.readInt32(), UNK_0x60 : stream.readUInt16(), vertCount : stream.readUInt16(), faceCount : stream.readUInt16(), UNK_0x66 : stream.readUInt16(), UNK_0x68 : stream.readInt32(), F3DOpCount : stream.readUInt16(), hitboxCount : stream.readByte(), jointCount : stream.readByte(), UNK_0x70 : stream.readUInt16(), textureCount : stream.readUInt16(), countFaceRangeWithEnvMap : stream.readByte(), countEFPairsInDrawMode : stream.readByte(), countTextureAnimations : stream.readByte(), UNK_0x77 : stream.readByte(), UNK_0x78 : stream.readInt32(), UNK_0x7c : stream.readInt32()};
+	$global.console.log(stream.pos);
+	return out;
+};
+lib_dinoplanet_Model.readModelTextureList = function(model) {
+	var stream = new haxe_io_BytesInput(model.datBytes,model.header.PTR_texture);
+	stream.set_bigEndian(true);
+	var _g = 0;
+	var _g1 = model.header.textureCount;
+	while(_g < _g1) {
+		var i = _g++;
+		model.textures.push({ UNK_0x00 : stream.readUInt16(), textureID : stream.readUInt16(), x : stream.readByte(), y : stream.readByte(), UNK_06 : stream.readByte(), UNK_07 : stream.readByte()});
+	}
+};
+lib_dinoplanet_Model.decompressModel = function(comp) {
+	var stream = new haxe_io_BytesInput(comp,0);
+	stream.set_bigEndian(true);
+	var animEntries = stream.readUInt16();
+	stream.set_position(stream.pos + 6);
+	stream.set_bigEndian(false);
+	var decompSize = stream.readInt32();
+	var level = stream.readByte();
+	var compSize = stream.totlen - 13;
+	var this1 = new Uint8Array(compSize);
+	var compressed = this1;
+	var _g = 0;
+	var _g1 = compSize;
+	while(_g < _g1) {
+		var i = _g++;
+		compressed[i] = stream.readByte();
+	}
+	var decompressed = pako.inflateRaw(compressed);
+	var out = new haxe_io_Bytes(new ArrayBuffer(decompSize));
+	var _g = 0;
+	var _g1 = decompSize;
+	while(_g < _g1) {
+		var i = _g++;
+		out.b[i] = decompressed[i];
+	}
+	return out;
+};
+var lib_dinoplanet_Rarezip = function() { };
+lib_dinoplanet_Rarezip.__name__ = true;
+lib_dinoplanet_Rarezip.decompress = function(src) {
+	var size = src.getInt32(0);
+	var level = src.b[4];
+	var compressedSize = src.length - 5;
+	var this1 = new Uint8Array(compressedSize);
+	var out = this1;
+	var _g = 0;
+	var _g1 = compressedSize;
+	while(_g < _g1) {
+		var i = _g++;
+		out[i] = src.b[5 + i];
+	}
+	var compressed = out;
+	var decompressed = pako.inflateRaw(compressed);
 	if(decompressed.length != size) {
+		$global.console.log(size,StringTools.hex(size,2));
+		$global.console.log(decompressed.length,StringTools.hex(decompressed.length,2));
 		throw haxe_Exception.thrown("decompressed size does not match");
 	}
-	var out = new framework_ByteThingyWhatToNameIt(new haxe_io_Bytes(new ArrayBuffer(decompressed.length)),false);
-	out.writeUint8Array(decompressed);
-	out.position = 0;
+	var out = new haxe_io_Bytes(new ArrayBuffer(decompressed.length));
+	var _g = 0;
+	var _g1 = decompressed.length;
+	while(_g < _g1) {
+		var i = _g++;
+		out.b[i] = decompressed[i];
+	}
+	var out1 = out;
+	return out1;
+};
+var lib_dinoplanet_TexPack = function() {
+};
+lib_dinoplanet_TexPack.__name__ = true;
+lib_dinoplanet_TexPack.prototype = {
+	loadData: function(bin) {
+		this.data = bin;
+	}
+	,loadOffsets: function(tab) {
+		this.offsetTable = tab;
+	}
+	,getItem: function(ord) {
+		var tabBytes = this.offsetTable;
+		var posBase = ord * 4;
+		var input = tabBytes.getInt32(posBase);
+		var mask = 255;
+		var out = (input & mask) << 24;
+		input >>= 8;
+		out |= (input & mask) << 16;
+		input >>= 8;
+		out |= (input & mask) << 8;
+		input >>= 8;
+		var ofs = out |= input & mask;
+		var input = tabBytes.getInt32(posBase + 4);
+		var mask = 255;
+		var out = (input & mask) << 24;
+		input >>= 8;
+		out |= (input & mask) << 16;
+		input >>= 8;
+		out |= (input & mask) << 8;
+		input >>= 8;
+		var endOfs = out |= input & mask;
+		var size = (endOfs & 16777215) - (ofs & 16777215);
+		var numSubTextures = (ofs & -16777216) >> 24;
+		var realOfs = ofs & 16777215;
+		var outBuf = new haxe_io_Bytes(new ArrayBuffer(size));
+		outBuf.blit(0,this.data,realOfs,size);
+		var out = { resCount : numSubTextures, resources : [{ ofs : realOfs, size : size}], data : outBuf};
+		if(numSubTextures > 1) {
+			out.resources.pop();
+			var tabSize = (numSubTextures + 1) * 2;
+			var this1 = new Uint32Array(tabSize);
+			var table = this1;
+			var _g = 0;
+			var _g1 = tabSize;
+			while(_g < _g1) {
+				var i = _g++;
+				var baseOf = realOfs + 4 * i;
+				var input = this.data.getInt32(baseOf);
+				var mask = 255;
+				var out1 = (input & mask) << 24;
+				input >>= 8;
+				out1 |= (input & mask) << 16;
+				input >>= 8;
+				out1 |= (input & mask) << 8;
+				input >>= 8;
+				table[i] = out1 |= input & mask;
+			}
+			var _g = 0;
+			var _g1 = numSubTextures;
+			while(_g < _g1) {
+				var i = _g++;
+				var ofs1 = table[i * 2];
+				var ofs2 = table[(i + 1) * 2];
+				var sizeComp = ofs2 - ofs1;
+				out.resources.push({ ofs : ofs1 + realOfs, size : sizeComp});
+			}
+		}
+		return out;
+	}
+	,getFile: function(ord) {
+		var datEntry = this.getItem(ord);
+		var out = [];
+		var _g = 0;
+		var _g1 = datEntry.resCount;
+		while(_g < _g1) {
+			var i = _g++;
+			var curr = datEntry.resources[i];
+			var byteout = new haxe_io_Bytes(new ArrayBuffer(curr.size));
+			byteout.blit(0,this.data,curr.ofs,curr.size);
+			out.push(byteout);
+		}
+		return out;
+	}
+};
+var lib_dinoplanet_Texture = function() { };
+lib_dinoplanet_Texture.__name__ = true;
+lib_dinoplanet_Texture.decodeTexture = function(src,sizeComp,hack) {
+	var raw;
+	if(sizeComp > 0) {
+		raw = lib_dinoplanet_Rarezip.decompress(src);
+	} else {
+		raw = src;
+	}
+	var header = lib_dinoplanet_Texture.readTextureHeader(raw);
+	var noSwizzle = false;
+	if(hack != null) {
+		noSwizzle = hack.noSwizzle;
+	}
+	switch(header.format.pixelFormat) {
+	case 0:
+		return lib_dinoplanet_Texture.readTextureRGBA32(raw,header,noSwizzle);
+	case 1:
+		return lib_dinoplanet_Texture.readTextureRGBA16(raw,header,noSwizzle);
+	case 2:
+		return lib_dinoplanet_Texture.readTextureI8(raw,header,noSwizzle);
+	case 3:
+		return lib_dinoplanet_Texture.readTextureI4(raw,header,noSwizzle);
+	case 4:
+		return lib_dinoplanet_Texture.readTextureIA16(raw,header,noSwizzle);
+	case 5:
+		return lib_dinoplanet_Texture.readTextureIA8(raw,header,noSwizzle);
+	case 6:
+		return lib_dinoplanet_Texture.readTextureIA4(raw,header,noSwizzle);
+	case 7:
+		return lib_dinoplanet_Texture.readTextureCI4(raw,header,noSwizzle);
+	case 8:
+		return lib_dinoplanet_Texture.readTextureCI8(raw,header,noSwizzle);
+	default:
+		throw haxe_Exception.thrown("unknown texture format! (" + Std.string(header.format) + ")");
+	}
+};
+lib_dinoplanet_Texture.getFormatNames = function() {
+	return lib_dinoplanet_Texture.formats;
+};
+lib_dinoplanet_Texture.encodeTexture = function(tex,head) {
+	throw haxe_Exception.thrown("not implemented");
+};
+lib_dinoplanet_Texture.readTextureHeader = function(src) {
+	var src1 = src.b[0];
+	var src2 = src.b[1];
+	var out = lib_dinoplanet_Texture.readFormatByte(src.b[2]);
+	var src3 = src.b[3];
+	var src4 = src.b[4];
+	var src5 = src.b[5];
+	var input = src.getUInt16(6);
+	var mask = 255;
+	var out1 = (input & mask) << 8;
+	input >>= 8;
+	var out2 = lib_dinoplanet_Texture.readFlags(out1 |= input & mask);
+	var input = src.getInt32(8);
+	var mask = 255;
+	var out1 = (input & mask) << 24;
+	input >>= 8;
+	out1 |= (input & mask) << 16;
+	input >>= 8;
+	out1 |= (input & mask) << 8;
+	input >>= 8;
+	var input1 = src.getUInt16(12);
+	var mask1 = 255;
+	var out3 = (input1 & mask1) << 8;
+	input1 >>= 8;
+	var input2 = src.getUInt16(14);
+	var mask2 = 255;
+	var out4 = (input2 & mask2) << 8;
+	input2 >>= 8;
+	var input3 = src.getUInt16(16);
+	var mask3 = 255;
+	var out5 = (input3 & mask3) << 8;
+	input3 >>= 8;
+	var input4 = src.getUInt16(18);
+	var mask4 = 255;
+	var out6 = (input4 & mask4) << 8;
+	input4 >>= 8;
+	var input5 = src.getInt32(20);
+	var mask5 = 255;
+	var out7 = (input5 & mask5) << 24;
+	input5 >>= 8;
+	out7 |= (input5 & mask5) << 16;
+	input5 >>= 8;
+	out7 |= (input5 & mask5) << 8;
+	input5 >>= 8;
+	var input6 = src.getUInt16(24);
+	var mask6 = 255;
+	var out8 = (input6 & mask6) << 8;
+	input6 >>= 8;
+	var out9 = { width : src1, height : src2, format : out, sprX : src3, sprY : src4, unk_0x5 : src5, flags : out2, PTR_gdl : out1 |= input & mask, levels : out3 |= input1 & mask1, unk_0xe : out4 |= input2 & mask2, unk_0x10 : out5 |= input3 & mask3, gdlIdx : out6 |= input4 & mask4, PTR_next : out7 |= input5 & mask5, unk_0x18 : out8 |= input6 & mask6, unk_0x1a : src.b[26], hwMSB : src.b[27], cms : src.b[28], masks : src.b[29], cmt : src.b[30], maskt : src.b[31]};
+	out9.width += (out9.hwMSB & 240) << 4;
+	out9.height += (out9.hwMSB & 15) << 8;
+	return out9;
+};
+lib_dinoplanet_Texture.writeTextureHeader = function(src) {
+	var buf = new haxe_io_Bytes(new ArrayBuffer(32));
+	var wMSB = src.width & 3840;
+	var hMSB = src.height & 3840;
+	buf.b[0] = src.width & 255;
+	buf.b[1] = src.height & 255;
+	wMSB <<= 4;
+	var formatByte = lib_dinoplanet_Texture.writeFormatByte(src.format);
+	buf.b[2] = formatByte;
+	buf.b[3] = src.sprX;
+	buf.b[4] = src.sprY;
+	buf.b[5] = 1;
+	var input = lib_dinoplanet_Texture.writeFlags(src.flags);
+	var mask = 255;
+	var out = (input & mask) << 8;
+	input >>= 8;
+	buf.setUInt16(6,out |= input & mask);
+	buf.setInt32(8,0);
+	var input = src.levels;
+	var mask = 255;
+	var out = (input & mask) << 8;
+	input >>= 8;
+	buf.setUInt16(12,out |= input & mask);
+	var input = src.unk_0xe;
+	var mask = 255;
+	var out = (input & mask) << 8;
+	input >>= 8;
+	buf.setUInt16(14,out |= input & mask);
+	var input = src.unk_0x10;
+	var mask = 255;
+	var out = (input & mask) << 8;
+	input >>= 8;
+	buf.setUInt16(16,out |= input & mask);
+	var input = src.gdlIdx;
+	var mask = 255;
+	var out = (input & mask) << 8;
+	input >>= 8;
+	buf.setUInt16(18,out |= input & mask);
+	buf.setInt32(20,0);
+	var input = src.unk_0x18;
+	var mask = 255;
+	var out = (input & mask) << 8;
+	input >>= 8;
+	buf.setUInt16(24,out |= input & mask);
+	buf.b[26] = src.unk_0x1a;
+	buf.b[27] = wMSB | hMSB;
+	buf.b[28] = src.cms;
+	buf.b[29] = src.masks;
+	buf.b[30] = src.cmt;
+	buf.b[31] = src.maskt;
+	throw haxe_Exception.thrown("texture header write WIP, final files may not function in-game");
+};
+lib_dinoplanet_Texture.readFlags = function(src) {
+	return { ovrNoInterlace : (src & 1) > 0, stateSwitcher : (src & 64) > 0, transparent : (src & 128) > 0, transparent2 : (src & 129) > 0, transparentAnimated : (src & 192) > 0, mipMapped : (src & 256) > 0, compositeBase : (src & 16384) > 0, compositeOverlay : (src & 32768) > 0};
+};
+lib_dinoplanet_Texture.writeFlags = function(src) {
+	var out = 0;
+	if(src.ovrNoInterlace) {
+		out |= 1;
+	}
+	if(src.stateSwitcher) {
+		out |= 64;
+	}
+	if(src.transparent) {
+		out |= 128;
+	}
+	if(src.transparent2) {
+		out |= 129;
+	}
+	if(src.transparentAnimated) {
+		out |= 192;
+	}
+	if(src.mipMapped) {
+		out |= 256;
+	}
+	if(src.compositeBase) {
+		out |= 16384;
+	}
+	if(src.compositeOverlay) {
+		out |= 32768;
+	}
 	return out;
 };
-var lib_haxepngjs_Color = $hxEnums["lib.haxepngjs.Color"] = { __ename__:true,__constructs__:null
-	,ColGrey: ($_=function(alpha) { return {_hx_index:0,alpha:alpha,__enum__:"lib.haxepngjs.Color",toString:$estr}; },$_._hx_name="ColGrey",$_.__params__ = ["alpha"],$_)
-	,ColTrue: ($_=function(alpha) { return {_hx_index:1,alpha:alpha,__enum__:"lib.haxepngjs.Color",toString:$estr}; },$_._hx_name="ColTrue",$_.__params__ = ["alpha"],$_)
-	,ColIndexed: {_hx_name:"ColIndexed",_hx_index:2,__enum__:"lib.haxepngjs.Color",toString:$estr}
+lib_dinoplanet_Texture.readFormatByte = function(src) {
+	return { pixelFormat : src & 15, gray : (src & 32) > 0, opaque : (src & 16) > 0};
 };
-lib_haxepngjs_Color.__constructs__ = [lib_haxepngjs_Color.ColGrey,lib_haxepngjs_Color.ColTrue,lib_haxepngjs_Color.ColIndexed];
-var lib_haxepngjs_Chunk = $hxEnums["lib.haxepngjs.Chunk"] = { __ename__:true,__constructs__:null
-	,CEnd: {_hx_name:"CEnd",_hx_index:0,__enum__:"lib.haxepngjs.Chunk",toString:$estr}
-	,CHeader: ($_=function(h) { return {_hx_index:1,h:h,__enum__:"lib.haxepngjs.Chunk",toString:$estr}; },$_._hx_name="CHeader",$_.__params__ = ["h"],$_)
-	,CData: ($_=function(b) { return {_hx_index:2,b:b,__enum__:"lib.haxepngjs.Chunk",toString:$estr}; },$_._hx_name="CData",$_.__params__ = ["b"],$_)
-	,CPalette: ($_=function(b) { return {_hx_index:3,b:b,__enum__:"lib.haxepngjs.Chunk",toString:$estr}; },$_._hx_name="CPalette",$_.__params__ = ["b"],$_)
-	,CUnknown: ($_=function(id,data) { return {_hx_index:4,id:id,data:data,__enum__:"lib.haxepngjs.Chunk",toString:$estr}; },$_._hx_name="CUnknown",$_.__params__ = ["id","data"],$_)
+lib_dinoplanet_Texture.writeFormatByte = function(src) {
+	var out = 0;
+	out |= src.pixelFormat;
+	if(src.gray) {
+		out |= 32;
+	}
+	if(src.opaque) {
+		out |= 16;
+	}
+	return out;
 };
-lib_haxepngjs_Chunk.__constructs__ = [lib_haxepngjs_Chunk.CEnd,lib_haxepngjs_Chunk.CHeader,lib_haxepngjs_Chunk.CData,lib_haxepngjs_Chunk.CPalette,lib_haxepngjs_Chunk.CUnknown];
-var lib_haxepngjs_Reader = function(i) {
+lib_dinoplanet_Texture.interlace64 = function(bits1,bits2,row) {
+	var out = [];
+	if(row % 2 == 1) {
+		out.push(bits2);
+		out.push(bits1);
+	} else {
+		out.push(bits1);
+		out.push(bits2);
+	}
+	return out;
+};
+lib_dinoplanet_Texture.interlace128 = function(bits1,bits2,bits3,bits4,row) {
+	var out = [];
+	if(row % 2 == 1) {
+		out.push(bits3);
+		out.push(bits4);
+		out.push(bits1);
+		out.push(bits2);
+	} else {
+		out.push(bits1);
+		out.push(bits2);
+		out.push(bits3);
+		out.push(bits4);
+	}
+	return out;
+};
+lib_dinoplanet_Texture.RGBA16 = function(c) {
+	var r = c & 63488;
+	var g = c & 1984;
+	var b = c & 62;
+	var a = c & 1;
+	r >>= 8;
+	g >>= 3;
+	b <<= 2;
+	var out = [];
+	out.push(r);
+	out.push(g);
+	out.push(b);
+	out.push(a * 255);
+	return out;
+};
+lib_dinoplanet_Texture.readPalette = function(src,numColors,pos) {
+	var this1 = new Uint8Array(numColors * 4);
+	var palette = this1;
+	var _g = 0;
+	var _g1 = numColors;
+	while(_g < _g1) {
+		var i = _g++;
+		var input = src.getUInt16(pos);
+		var mask = 255;
+		var out = (input & mask) << 8;
+		input >>= 8;
+		var c0 = out |= input & mask;
+		var c = lib_dinoplanet_Texture.RGBA16(c0);
+		var base = i * 4;
+		palette[base] = c[0];
+		palette[base + 1] = c[1];
+		palette[base + 2] = c[2];
+		palette[base + 3] = c[3];
+		pos += 2;
+	}
+	return palette;
+};
+lib_dinoplanet_Texture.writePalette = function() {
+};
+lib_dinoplanet_Texture.readTextureRGBA32 = function(src,header,noSwizzle) {
+	var width = header.width;
+	var height = header.height;
+	var format = header.format;
+	var imageSize = width * height;
+	var this1 = new Uint8Array(imageSize * 4);
+	var pixels = this1;
+	var position = 32;
+	var bitsLeft = 128;
+	var currentRow = 0;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits1 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits2 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits3 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits4 = out |= input & mask;
+	position += 4;
+	var bitSrc = lib_dinoplanet_Texture.interlace128(bits1,bits2,bits3,bits4,currentRow);
+	bits1 = bitSrc[0];
+	bits2 = bitSrc[1];
+	bits3 = bitSrc[2];
+	bits4 = bitSrc[3];
+	var _g = 0;
+	var _g1 = imageSize;
+	while(_g < _g1) {
+		var j = _g++;
+		if(j > 0 && j % width != 0) {
+			if(!noSwizzle) {
+				++currentRow;
+			}
+		}
+		if(bitsLeft <= 0) {
+			var input = src.getInt32(position);
+			var mask = 255;
+			var out = (input & mask) << 24;
+			input >>= 8;
+			out |= (input & mask) << 16;
+			input >>= 8;
+			out |= (input & mask) << 8;
+			input >>= 8;
+			out |= input & mask;
+			bits1 = out;
+			position += 4;
+			var input1 = src.getInt32(position);
+			var mask1 = 255;
+			var out1 = (input1 & mask1) << 24;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 16;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 8;
+			input1 >>= 8;
+			out1 |= input1 & mask1;
+			bits2 = out1;
+			position += 4;
+			var input2 = src.getInt32(position);
+			var mask2 = 255;
+			var out2 = (input2 & mask2) << 24;
+			input2 >>= 8;
+			out2 |= (input2 & mask2) << 16;
+			input2 >>= 8;
+			out2 |= (input2 & mask2) << 8;
+			input2 >>= 8;
+			out2 |= input2 & mask2;
+			bits3 = out2;
+			position += 4;
+			var input3 = src.getInt32(position);
+			var mask3 = 255;
+			var out3 = (input3 & mask3) << 24;
+			input3 >>= 8;
+			out3 |= (input3 & mask3) << 16;
+			input3 >>= 8;
+			out3 |= (input3 & mask3) << 8;
+			input3 >>= 8;
+			out3 |= input3 & mask3;
+			bits4 = out3;
+			position += 4;
+			bitSrc = lib_dinoplanet_Texture.interlace128(bits1,bits2,bits3,bits4,currentRow);
+			bitsLeft = 128;
+		}
+		var pix = 0;
+		var r = 0;
+		var g = 0;
+		var b = 0;
+		var a = 0;
+		if(bitsLeft >= 32) {
+			pix = bitSrc.shift();
+			r = (pix & -16777216) >>> 24;
+			g = (pix & 16711680) >>> 16;
+			b = (pix & 65280) >>> 8;
+			a = pix & 255;
+			bitsLeft -= 32;
+		}
+		var base = j * 4;
+		pixels[base] = r;
+		pixels[base + 1] = g;
+		pixels[base + 2] = b;
+		pixels[base + 3] = a;
+	}
+	var this1 = new Uint8Array(4);
+	return { format : format, flags : header.flags, palette : this1, width : width, height : height, pixels : pixels};
+};
+lib_dinoplanet_Texture.readTextureRGBA16 = function(src,header,noSwizzle) {
+	var width = header.width;
+	var height = header.height;
+	if(height == 44) {
+		height = width;
+	}
+	var format = header.format;
+	var imageSize = width * height;
+	var this1 = new Uint8Array(imageSize * 4);
+	var pixels = this1;
+	var position = 32;
+	var bitsLeft = 64;
+	var currentRow = 0;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits1 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits2 = out |= input & mask;
+	position += 4;
+	var out = [];
+	if(currentRow % 2 == 1) {
+		out.push(bits2);
+		out.push(bits1);
+	} else {
+		out.push(bits1);
+		out.push(bits2);
+	}
+	var bitSrc = out;
+	bits1 = bitSrc[0];
+	bits2 = bitSrc[1];
+	var _g = 0;
+	var _g1 = imageSize;
+	while(_g < _g1) {
+		var j = _g++;
+		if(j > 0 && j % width != 0) {
+			if(!noSwizzle) {
+				++currentRow;
+			}
+		}
+		if(bitsLeft <= 0) {
+			var input = src.getInt32(position);
+			var mask = 255;
+			var out = (input & mask) << 24;
+			input >>= 8;
+			out |= (input & mask) << 16;
+			input >>= 8;
+			out |= (input & mask) << 8;
+			input >>= 8;
+			out |= input & mask;
+			bits1 = out;
+			position += 4;
+			var input1 = src.getInt32(position);
+			var mask1 = 255;
+			var out1 = (input1 & mask1) << 24;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 16;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 8;
+			input1 >>= 8;
+			out1 |= input1 & mask1;
+			bits2 = out1;
+			position += 4;
+			var out2 = [];
+			if(currentRow % 2 == 1) {
+				out2.push(bits2);
+				out2.push(bits1);
+			} else {
+				out2.push(bits1);
+				out2.push(bits2);
+			}
+			bitSrc = out2;
+			bits1 = bitSrc[0];
+			bits2 = bitSrc[1];
+			bitsLeft = 64;
+		}
+		var pix = 0;
+		if(bitsLeft <= 32) {
+			pix = (bits2 & -65536) >>> 16;
+			bits2 <<= 16;
+			bitsLeft -= 16;
+		} else {
+			pix = (bits1 & -65536) >>> 16;
+			bits1 <<= 16;
+			bitsLeft -= 16;
+		}
+		var base = j * 4;
+		var c = lib_dinoplanet_Texture.RGBA16(pix);
+		pixels[base] = c[0];
+		pixels[base + 1] = c[1];
+		pixels[base + 2] = c[2];
+		pixels[base + 3] = c[3];
+	}
+	var this1 = new Uint8Array(4);
+	return { format : format, flags : header.flags, palette : this1, width : width, height : height, pixels : pixels};
+};
+lib_dinoplanet_Texture.readTextureI8 = function(src,header,noSwizzle) {
+	var width = header.width;
+	var height = header.height;
+	var format = header.format;
+	var imageSize = width * height;
+	var this1 = new Uint8Array(imageSize);
+	var pixels = this1;
+	var position = 32;
+	var bitsLeft = 64;
+	var currentRow = 0;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits1 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits2 = out |= input & mask;
+	position += 4;
+	var out = [];
+	if(currentRow % 2 == 1) {
+		out.push(bits2);
+		out.push(bits1);
+	} else {
+		out.push(bits1);
+		out.push(bits2);
+	}
+	var bitSrc = out;
+	bits1 = bitSrc[0];
+	bits2 = bitSrc[1];
+	var _g = 0;
+	var _g1 = imageSize;
+	while(_g < _g1) {
+		var j = _g++;
+		if(j > 0 && j % width != 0) {
+			if(!noSwizzle) {
+				++currentRow;
+			}
+		}
+		if(bitsLeft <= 0) {
+			var input = src.getInt32(position);
+			var mask = 255;
+			var out = (input & mask) << 24;
+			input >>= 8;
+			out |= (input & mask) << 16;
+			input >>= 8;
+			out |= (input & mask) << 8;
+			input >>= 8;
+			out |= input & mask;
+			bits1 = out;
+			position += 4;
+			var input1 = src.getInt32(position);
+			var mask1 = 255;
+			var out1 = (input1 & mask1) << 24;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 16;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 8;
+			input1 >>= 8;
+			out1 |= input1 & mask1;
+			bits2 = out1;
+			position += 4;
+			var out2 = [];
+			if(currentRow % 2 == 1) {
+				out2.push(bits2);
+				out2.push(bits1);
+			} else {
+				out2.push(bits1);
+				out2.push(bits2);
+			}
+			bitSrc = out2;
+			bits1 = bitSrc[0];
+			bits2 = bitSrc[1];
+			bitsLeft = 64;
+		}
+		var pix = 0;
+		if(bitsLeft <= 32) {
+			pix = (bits2 & -16777216) >>> 24;
+			bits2 <<= 8;
+			bitsLeft -= 8;
+		} else {
+			pix = (bits1 & -16777216) >>> 24;
+			bits1 <<= 8;
+			bitsLeft -= 8;
+		}
+		pixels[j] = pix;
+	}
+	var this1 = new Uint8Array(4);
+	return { format : format, flags : header.flags, palette : this1, width : width, height : height, pixels : pixels};
+};
+lib_dinoplanet_Texture.readTextureI4 = function(src,header,noSwizzle) {
+	var width = header.width;
+	var height = header.height;
+	var format = header.format;
+	var imageSize = width * height;
+	var this1 = new Uint8Array(imageSize);
+	var pixels = this1;
+	var position = 32;
+	var bitsLeft = 64;
+	var currentRow = 0;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits1 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits2 = out |= input & mask;
+	position += 4;
+	var out = [];
+	if(currentRow % 2 == 1) {
+		out.push(bits2);
+		out.push(bits1);
+	} else {
+		out.push(bits1);
+		out.push(bits2);
+	}
+	var bitSrc = out;
+	bits1 = bitSrc[0];
+	bits2 = bitSrc[1];
+	var _g = 0;
+	var _g1 = imageSize;
+	while(_g < _g1) {
+		var j = _g++;
+		if(j > 0 && j % width != 0) {
+			if(!noSwizzle) {
+				++currentRow;
+			}
+		}
+		if(bitsLeft <= 0) {
+			var input = src.getInt32(position);
+			var mask = 255;
+			var out = (input & mask) << 24;
+			input >>= 8;
+			out |= (input & mask) << 16;
+			input >>= 8;
+			out |= (input & mask) << 8;
+			input >>= 8;
+			out |= input & mask;
+			bits1 = out;
+			position += 4;
+			var input1 = src.getInt32(position);
+			var mask1 = 255;
+			var out1 = (input1 & mask1) << 24;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 16;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 8;
+			input1 >>= 8;
+			out1 |= input1 & mask1;
+			bits2 = out1;
+			position += 4;
+			var out2 = [];
+			if(currentRow % 2 == 1) {
+				out2.push(bits2);
+				out2.push(bits1);
+			} else {
+				out2.push(bits1);
+				out2.push(bits2);
+			}
+			bitSrc = out2;
+			bits1 = bitSrc[0];
+			bits2 = bitSrc[1];
+			bitsLeft = 64;
+		}
+		var pix = 0;
+		if(bitsLeft <= 32) {
+			pix = (bits2 & -268435456) >>> 28;
+			bits2 <<= 4;
+			bitsLeft -= 4;
+		} else {
+			pix = (bits1 & -268435456) >>> 28;
+			bits1 <<= 4;
+			bitsLeft -= 4;
+		}
+		pixels[j] = lib_dinoplanet_Texture.CLUT4BIT[pix];
+	}
+	var this1 = new Uint8Array(4);
+	return { format : format, flags : header.flags, palette : this1, width : width, height : height, pixels : pixels};
+};
+lib_dinoplanet_Texture.readTextureIA16 = function(src,header,noSwizzle) {
+	var width = header.width;
+	var height = header.height;
+	var format = header.format;
+	var imageSize = width * height;
+	var this1 = new Uint8Array(imageSize * 2);
+	var pixels = this1;
+	var position = 32;
+	var bitsLeft = 64;
+	var currentRow = 0;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits1 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits2 = out |= input & mask;
+	position += 4;
+	var out = [];
+	if(currentRow % 2 == 1) {
+		out.push(bits2);
+		out.push(bits1);
+	} else {
+		out.push(bits1);
+		out.push(bits2);
+	}
+	var bitSrc = out;
+	bits1 = bitSrc[0];
+	bits2 = bitSrc[1];
+	var _g = 0;
+	var _g1 = imageSize;
+	while(_g < _g1) {
+		var j = _g++;
+		if(j > 0 && j % width != 0) {
+			if(!noSwizzle) {
+				++currentRow;
+			}
+		}
+		if(bitsLeft <= 0) {
+			var input = src.getInt32(position);
+			var mask = 255;
+			var out = (input & mask) << 24;
+			input >>= 8;
+			out |= (input & mask) << 16;
+			input >>= 8;
+			out |= (input & mask) << 8;
+			input >>= 8;
+			out |= input & mask;
+			bits1 = out;
+			position += 4;
+			var input1 = src.getInt32(position);
+			var mask1 = 255;
+			var out1 = (input1 & mask1) << 24;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 16;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 8;
+			input1 >>= 8;
+			out1 |= input1 & mask1;
+			bits2 = out1;
+			position += 4;
+			var out2 = [];
+			if(currentRow % 2 == 1) {
+				out2.push(bits2);
+				out2.push(bits1);
+			} else {
+				out2.push(bits1);
+				out2.push(bits2);
+			}
+			bitSrc = out2;
+			bits1 = bitSrc[0];
+			bits2 = bitSrc[1];
+			bitsLeft = 64;
+		}
+		var pix = 0;
+		var a = 0;
+		if(bitsLeft <= 32) {
+			pix = (bits2 & -16777216) >>> 24;
+			a = (bits2 & 16711680) >>> 16;
+			bits2 <<= 16;
+			bitsLeft -= 16;
+		} else {
+			pix = (bits1 & -16777216) >>> 24;
+			a = (bits1 & 16711680) >>> 16;
+			bits1 <<= 16;
+			bitsLeft -= 16;
+		}
+		var base = j * 2;
+		pixels[base] = pix;
+		pixels[base + 1] = a;
+	}
+	var this1 = new Uint8Array(4);
+	return { format : format, flags : header.flags, palette : this1, width : width, height : height, pixels : pixels};
+};
+lib_dinoplanet_Texture.readTextureIA8 = function(src,header,noSwizzle) {
+	var width = header.width;
+	var height = header.height;
+	var format = header.format;
+	var imageSize = width * height;
+	var this1 = new Uint8Array(imageSize * 2);
+	var pixels = this1;
+	var position = 32;
+	var bitsLeft = 64;
+	var currentRow = 0;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits1 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits2 = out |= input & mask;
+	position += 4;
+	var out = [];
+	if(currentRow % 2 == 1) {
+		out.push(bits2);
+		out.push(bits1);
+	} else {
+		out.push(bits1);
+		out.push(bits2);
+	}
+	var bitSrc = out;
+	bits1 = bitSrc[0];
+	bits2 = bitSrc[1];
+	var _g = 0;
+	var _g1 = imageSize;
+	while(_g < _g1) {
+		var j = _g++;
+		if(j > 0 && j % width != 0) {
+			if(!noSwizzle) {
+				++currentRow;
+			}
+		}
+		if(bitsLeft <= 0) {
+			var input = src.getInt32(position);
+			var mask = 255;
+			var out = (input & mask) << 24;
+			input >>= 8;
+			out |= (input & mask) << 16;
+			input >>= 8;
+			out |= (input & mask) << 8;
+			input >>= 8;
+			out |= input & mask;
+			bits1 = out;
+			position += 4;
+			var input1 = src.getInt32(position);
+			var mask1 = 255;
+			var out1 = (input1 & mask1) << 24;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 16;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 8;
+			input1 >>= 8;
+			out1 |= input1 & mask1;
+			bits2 = out1;
+			position += 4;
+			var out2 = [];
+			if(currentRow % 2 == 1) {
+				out2.push(bits2);
+				out2.push(bits1);
+			} else {
+				out2.push(bits1);
+				out2.push(bits2);
+			}
+			bitSrc = out2;
+			bits1 = bitSrc[0];
+			bits2 = bitSrc[1];
+			bitsLeft = 64;
+		}
+		var pix = 0;
+		var r = 0;
+		var g = 0;
+		var b = 0;
+		var a = 0;
+		if(bitsLeft <= 32) {
+			pix = (bits2 & -268435456) >>> 28;
+			a = (bits2 & 251658240) >>> 24;
+			bits2 <<= 8;
+			r = lib_dinoplanet_Texture.CLUT4BIT[pix];
+			bitsLeft -= 8;
+		} else {
+			pix = (bits1 & -268435456) >>> 28;
+			a = (bits1 & 251658240) >>> 24;
+			bits1 <<= 8;
+			r = lib_dinoplanet_Texture.CLUT4BIT[pix];
+			bitsLeft -= 8;
+		}
+		var base = j * 2;
+		pixels[base] = r;
+		pixels[base + 1] = lib_dinoplanet_Texture.CLUT4BIT[a];
+	}
+	var this1 = new Uint8Array(4);
+	return { format : format, flags : header.flags, palette : this1, width : width, height : height, pixels : pixels};
+};
+lib_dinoplanet_Texture.readTextureIA4 = function(src,header,noSwizzle) {
+	var width = header.width;
+	var height = header.height;
+	var format = header.format;
+	var imageSize = width * height;
+	var this1 = new Uint8Array(imageSize * 4);
+	var pixels = this1;
+	var position = 32;
+	var bitsLeft = 64;
+	var currentRow = 0;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits1 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits2 = out |= input & mask;
+	position += 4;
+	var out = [];
+	if(currentRow % 2 == 1) {
+		out.push(bits2);
+		out.push(bits1);
+	} else {
+		out.push(bits1);
+		out.push(bits2);
+	}
+	var bitSrc = out;
+	bits1 = bitSrc[0];
+	bits2 = bitSrc[1];
+	var _g = 0;
+	var _g1 = imageSize;
+	while(_g < _g1) {
+		var j = _g++;
+		if(j > 0 && j % width != 0) {
+			if(!noSwizzle) {
+				++currentRow;
+			}
+		}
+		if(bitsLeft <= 0) {
+			var input = src.getInt32(position);
+			var mask = 255;
+			var out = (input & mask) << 24;
+			input >>= 8;
+			out |= (input & mask) << 16;
+			input >>= 8;
+			out |= (input & mask) << 8;
+			input >>= 8;
+			out |= input & mask;
+			bits1 = out;
+			position += 4;
+			var input1 = src.getInt32(position);
+			var mask1 = 255;
+			var out1 = (input1 & mask1) << 24;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 16;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 8;
+			input1 >>= 8;
+			out1 |= input1 & mask1;
+			bits2 = out1;
+			position += 4;
+			var out2 = [];
+			if(currentRow % 2 == 1) {
+				out2.push(bits2);
+				out2.push(bits1);
+			} else {
+				out2.push(bits1);
+				out2.push(bits2);
+			}
+			bitSrc = out2;
+			bits1 = bitSrc[0];
+			bits2 = bitSrc[1];
+			bitsLeft = 64;
+		}
+		var pix = 0;
+		var r = 0;
+		var g = 0;
+		var b = 0;
+		var a = 0;
+		if(bitsLeft <= 32) {
+			pix = (bits2 & -268435456) >>> 28;
+			a = pix & 1;
+			pix >>>= 1;
+			bits2 <<= 4;
+			r = lib_dinoplanet_Texture.CLUT4BIT[pix * 2];
+			bitsLeft -= 4;
+		} else {
+			pix = (bits1 & -268435456) >>> 28;
+			a = pix & 1;
+			pix >>>= 1;
+			bits1 <<= 4;
+			r = lib_dinoplanet_Texture.CLUT4BIT[pix * 2];
+			bitsLeft -= 4;
+		}
+		var base = j * 2;
+		pixels[base] = r;
+		pixels[base + 1] = a * 255;
+	}
+	var this1 = new Uint8Array(4);
+	return { format : format, flags : header.flags, palette : this1, width : width, height : height, pixels : pixels};
+};
+lib_dinoplanet_Texture.readTextureCI4 = function(src,header,noSwizzle) {
+	var width = header.width;
+	var height = header.height;
+	var format = header.format;
+	var imageSize = width * height;
+	var this1 = new Uint8Array(imageSize);
+	var pixels = this1;
+	var bitsLeft = 64;
+	var position = 32;
+	var bitsLeft = 64;
+	var currentRow = 0;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits1 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits2 = out |= input & mask;
+	position += 4;
+	var out = [];
+	if(currentRow % 2 == 1) {
+		out.push(bits2);
+		out.push(bits1);
+	} else {
+		out.push(bits1);
+		out.push(bits2);
+	}
+	var bitSrc = out;
+	bits1 = bitSrc[0];
+	bits2 = bitSrc[1];
+	var _g = 0;
+	var _g1 = imageSize;
+	while(_g < _g1) {
+		var j = _g++;
+		if(j > 0 && j % width != 0) {
+			if(!noSwizzle) {
+				++currentRow;
+			}
+		}
+		if(bitsLeft <= 0) {
+			var input = src.getInt32(position);
+			var mask = 255;
+			var out = (input & mask) << 24;
+			input >>= 8;
+			out |= (input & mask) << 16;
+			input >>= 8;
+			out |= (input & mask) << 8;
+			input >>= 8;
+			out |= input & mask;
+			bits1 = out;
+			position += 4;
+			var input1 = src.getInt32(position);
+			var mask1 = 255;
+			var out1 = (input1 & mask1) << 24;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 16;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 8;
+			input1 >>= 8;
+			out1 |= input1 & mask1;
+			bits2 = out1;
+			position += 4;
+			var out2 = [];
+			if(currentRow % 2 == 1) {
+				out2.push(bits2);
+				out2.push(bits1);
+			} else {
+				out2.push(bits1);
+				out2.push(bits2);
+			}
+			bitSrc = out2;
+			bits1 = bitSrc[0];
+			bits2 = bitSrc[1];
+			bitsLeft = 64;
+		}
+		var pix = 0;
+		if(bitsLeft <= 32) {
+			pix = (bits2 & -268435456) >>> 28;
+			bits2 <<= 4;
+			bitsLeft -= 4;
+		} else {
+			pix = (bits1 & -268435456) >>> 28;
+			bits1 <<= 4;
+			bitsLeft -= 4;
+		}
+		pixels[j] = pix;
+	}
+	var palette = lib_dinoplanet_Texture.readPalette(src,16,position);
+	return { format : format, flags : header.flags, palette : palette, width : width, height : height, pixels : pixels};
+};
+lib_dinoplanet_Texture.readTextureCI8 = function(src,header,noSwizzle) {
+	var width = header.width;
+	var height = header.height;
+	var format = header.format;
+	var imageSize = width * height;
+	var this1 = new Uint8Array(imageSize);
+	var pixels = this1;
+	var position = 32;
+	var bitsLeft = 64;
+	var currentRow = 0;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits1 = out |= input & mask;
+	position += 4;
+	var input = src.getInt32(position);
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	var bits2 = out |= input & mask;
+	position += 4;
+	var out = [];
+	if(currentRow % 2 == 1) {
+		out.push(bits2);
+		out.push(bits1);
+	} else {
+		out.push(bits1);
+		out.push(bits2);
+	}
+	var bitSrc = out;
+	bits1 = bitSrc[0];
+	bits2 = bitSrc[1];
+	var _g = 0;
+	var _g1 = imageSize;
+	while(_g < _g1) {
+		var j = _g++;
+		if(j > 0 && j % width != 0) {
+			if(!noSwizzle) {
+				++currentRow;
+			}
+		}
+		if(bitsLeft <= 0) {
+			var input = src.getInt32(position);
+			var mask = 255;
+			var out = (input & mask) << 24;
+			input >>= 8;
+			out |= (input & mask) << 16;
+			input >>= 8;
+			out |= (input & mask) << 8;
+			input >>= 8;
+			out |= input & mask;
+			bits1 = out;
+			position += 4;
+			var input1 = src.getInt32(position);
+			var mask1 = 255;
+			var out1 = (input1 & mask1) << 24;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 16;
+			input1 >>= 8;
+			out1 |= (input1 & mask1) << 8;
+			input1 >>= 8;
+			out1 |= input1 & mask1;
+			bits2 = out1;
+			position += 4;
+			var out2 = [];
+			if(currentRow % 2 == 1) {
+				out2.push(bits2);
+				out2.push(bits1);
+			} else {
+				out2.push(bits1);
+				out2.push(bits2);
+			}
+			bitSrc = out2;
+			bits1 = bitSrc[0];
+			bits2 = bitSrc[1];
+			bitsLeft = 64;
+		}
+		var pix = 0;
+		if(bitsLeft <= 32) {
+			pix = (bits2 & -16777216) >>> 28;
+			bits2 <<= 8;
+			bitsLeft -= 8;
+		} else {
+			pix = (bits1 & -16777216) >>> 28;
+			bits1 <<= 8;
+			bitsLeft -= 8;
+		}
+		pixels[j] = pix;
+	}
+	var palette = lib_dinoplanet_Texture.readPalette(src,16,position);
+	return { format : format, flags : header.flags, palette : palette, width : width, height : height, pixels : pixels};
+};
+lib_dinoplanet_Texture.convertToImage = function(texture,forceOpacity) {
+	var img = new ImageData(texture.width,texture.height);
+	var size = texture.width * texture.height;
+	var pal = texture.palette;
+	var f = texture.format.pixelFormat;
+	if(f == 7 || f == 8) {
+		if(forceOpacity) {
+			var _g = 0;
+			var _g1 = size;
+			while(_g < _g1) {
+				var i = _g++;
+				var base = i * 4;
+				var basePal = texture.pixels[i] * 4;
+				img.data[base] = pal[basePal];
+				img.data[base + 1] = pal[basePal + 1];
+				img.data[base + 2] = pal[basePal + 2];
+				img.data[base + 3] = 255;
+			}
+		} else {
+			var _g = 0;
+			var _g1 = size;
+			while(_g < _g1) {
+				var i = _g++;
+				var base = i * 4;
+				var basePal = texture.pixels[i] * 4;
+				img.data[base] = pal[basePal];
+				img.data[base + 1] = pal[basePal + 1];
+				img.data[base + 2] = pal[basePal + 2];
+				img.data[base + 3] = pal[basePal + 3];
+			}
+		}
+	} else if(f == 0 || f == 1) {
+		if(forceOpacity) {
+			var _g = 0;
+			var _g1 = size;
+			while(_g < _g1) {
+				var i = _g++;
+				var base = i * 4;
+				img.data[base] = texture.pixels[base];
+				img.data[base + 1] = texture.pixels[base + 1];
+				img.data[base + 2] = texture.pixels[base + 2];
+				img.data[base + 3] = 255;
+			}
+		} else {
+			var _g = 0;
+			var _g1 = size;
+			while(_g < _g1) {
+				var i = _g++;
+				var base = i * 4;
+				img.data[base] = texture.pixels[base];
+				img.data[base + 1] = texture.pixels[base + 1];
+				img.data[base + 2] = texture.pixels[base + 2];
+				img.data[base + 3] = texture.pixels[base + 3];
+			}
+		}
+	} else if(f == 2 || f == 3) {
+		var _g = 0;
+		var _g1 = size;
+		while(_g < _g1) {
+			var i = _g++;
+			var p = texture.pixels[i];
+			var base = i * 4;
+			img.data[base] = p;
+			img.data[base + 1] = p;
+			img.data[base + 2] = p;
+			img.data[base + 3] = 255;
+		}
+	} else if(f == 4 || f == 5 || f == 6) {
+		if(forceOpacity) {
+			var _g = 0;
+			var _g1 = size;
+			while(_g < _g1) {
+				var i = _g++;
+				var base0 = i * 2;
+				var p = texture.pixels[base0];
+				var base = i * 4;
+				img.data[base] = p;
+				img.data[base + 1] = p;
+				img.data[base + 2] = p;
+				img.data[base + 3] = 255;
+			}
+		} else {
+			var _g = 0;
+			var _g1 = size;
+			while(_g < _g1) {
+				var i = _g++;
+				var base0 = i * 2;
+				var p = texture.pixels[base0];
+				var pa = texture.pixels[base0 + 1];
+				var base = i * 4;
+				img.data[base] = p;
+				img.data[base + 1] = p;
+				img.data[base + 2] = p;
+				img.data[base + 3] = pa;
+			}
+		}
+	}
+	return img;
+};
+var lib_image_png_Color = $hxEnums["lib.image.png.Color"] = { __ename__:true,__constructs__:null
+	,ColGrey: ($_=function(alpha) { return {_hx_index:0,alpha:alpha,__enum__:"lib.image.png.Color",toString:$estr}; },$_._hx_name="ColGrey",$_.__params__ = ["alpha"],$_)
+	,ColTrue: ($_=function(alpha) { return {_hx_index:1,alpha:alpha,__enum__:"lib.image.png.Color",toString:$estr}; },$_._hx_name="ColTrue",$_.__params__ = ["alpha"],$_)
+	,ColIndexed: {_hx_name:"ColIndexed",_hx_index:2,__enum__:"lib.image.png.Color",toString:$estr}
+};
+lib_image_png_Color.__constructs__ = [lib_image_png_Color.ColGrey,lib_image_png_Color.ColTrue,lib_image_png_Color.ColIndexed];
+var lib_image_png_Chunk = $hxEnums["lib.image.png.Chunk"] = { __ename__:true,__constructs__:null
+	,CEnd: {_hx_name:"CEnd",_hx_index:0,__enum__:"lib.image.png.Chunk",toString:$estr}
+	,CHeader: ($_=function(h) { return {_hx_index:1,h:h,__enum__:"lib.image.png.Chunk",toString:$estr}; },$_._hx_name="CHeader",$_.__params__ = ["h"],$_)
+	,CData: ($_=function(b) { return {_hx_index:2,b:b,__enum__:"lib.image.png.Chunk",toString:$estr}; },$_._hx_name="CData",$_.__params__ = ["b"],$_)
+	,CPalette: ($_=function(b) { return {_hx_index:3,b:b,__enum__:"lib.image.png.Chunk",toString:$estr}; },$_._hx_name="CPalette",$_.__params__ = ["b"],$_)
+	,CUnknown: ($_=function(id,data) { return {_hx_index:4,id:id,data:data,__enum__:"lib.image.png.Chunk",toString:$estr}; },$_._hx_name="CUnknown",$_.__params__ = ["id","data"],$_)
+};
+lib_image_png_Chunk.__constructs__ = [lib_image_png_Chunk.CEnd,lib_image_png_Chunk.CHeader,lib_image_png_Chunk.CData,lib_image_png_Chunk.CPalette,lib_image_png_Chunk.CUnknown];
+var lib_image_png_Reader = function(i) {
 	this.i = i;
 	i.set_bigEndian(true);
 	this.checkCRC = true;
 };
-lib_haxepngjs_Reader.__name__ = true;
-lib_haxepngjs_Reader.prototype = {
+lib_image_png_Reader.__name__ = true;
+lib_image_png_Reader.prototype = {
 	read: function() {
 		var b = 137;
 		if(this.i.readByte() != b) {
@@ -2169,7 +3043,7 @@ lib_haxepngjs_Reader.prototype = {
 		while(true) {
 			var c = this.readChunk();
 			l.add(c);
-			if(c == lib_haxepngjs_Chunk.CEnd) {
+			if(c == lib_image_png_Chunk.CEnd) {
 				break;
 			}
 		}
@@ -2184,19 +3058,19 @@ lib_haxepngjs_Reader.prototype = {
 		var color1;
 		switch(color) {
 		case 0:
-			color1 = lib_haxepngjs_Color.ColGrey(false);
+			color1 = lib_image_png_Color.ColGrey(false);
 			break;
 		case 2:
-			color1 = lib_haxepngjs_Color.ColTrue(false);
+			color1 = lib_image_png_Color.ColTrue(false);
 			break;
 		case 3:
-			color1 = lib_haxepngjs_Color.ColIndexed;
+			color1 = lib_image_png_Color.ColIndexed;
 			break;
 		case 4:
-			color1 = lib_haxepngjs_Color.ColGrey(true);
+			color1 = lib_image_png_Color.ColGrey(true);
 			break;
 		case 6:
-			color1 = lib_haxepngjs_Color.ColTrue(true);
+			color1 = lib_image_png_Color.ColTrue(true);
 			break;
 		default:
 			throw haxe_Exception.thrown("Unknown color model " + color + ":" + colbits);
@@ -2281,21 +3155,21 @@ lib_haxepngjs_Reader.prototype = {
 		}
 		switch(id) {
 		case "IDAT":
-			return lib_haxepngjs_Chunk.CData(data);
+			return lib_image_png_Chunk.CData(data);
 		case "IEND":
-			return lib_haxepngjs_Chunk.CEnd;
+			return lib_image_png_Chunk.CEnd;
 		case "IHDR":
-			return lib_haxepngjs_Chunk.CHeader(this.readHeader(new haxe_io_BytesInput(data)));
+			return lib_image_png_Chunk.CHeader(this.readHeader(new haxe_io_BytesInput(data)));
 		case "PLTE":
-			return lib_haxepngjs_Chunk.CPalette(data);
+			return lib_image_png_Chunk.CPalette(data);
 		default:
-			return lib_haxepngjs_Chunk.CUnknown(id,data);
+			return lib_image_png_Chunk.CUnknown(id,data);
 		}
 	}
 };
-var lib_haxepngjs_Tools = function() { };
-lib_haxepngjs_Tools.__name__ = true;
-lib_haxepngjs_Tools.getHeader = function(d) {
+var lib_image_png_Tools = function() { };
+lib_image_png_Tools.__name__ = true;
+lib_image_png_Tools.getHeader = function(d) {
 	var _g_head = d.h;
 	while(_g_head != null) {
 		var val = _g_head.item;
@@ -2308,7 +3182,7 @@ lib_haxepngjs_Tools.getHeader = function(d) {
 	}
 	throw haxe_Exception.thrown("Header not found");
 };
-lib_haxepngjs_Tools.getPalette = function(d) {
+lib_image_png_Tools.getPalette = function(d) {
 	var _g_head = d.h;
 	while(_g_head != null) {
 		var val = _g_head.item;
@@ -2321,7 +3195,7 @@ lib_haxepngjs_Tools.getPalette = function(d) {
 	}
 	return null;
 };
-lib_haxepngjs_Tools.filter = function(data,x,y,stride,prev,p,numChannels) {
+lib_image_png_Tools.filter = function(data,x,y,stride,prev,p,numChannels) {
 	if(numChannels == null) {
 		numChannels = 4;
 	}
@@ -2348,7 +3222,7 @@ lib_haxepngjs_Tools.filter = function(data,x,y,stride,prev,p,numChannels) {
 		return c;
 	}
 };
-lib_haxepngjs_Tools.reverseBytes = function(b) {
+lib_image_png_Tools.reverseBytes = function(b) {
 	var p = 0;
 	var _g = 0;
 	var _g1 = b.length >> 2;
@@ -2364,8 +3238,8 @@ lib_haxepngjs_Tools.reverseBytes = function(b) {
 		b.b[p++] = b1;
 	}
 };
-lib_haxepngjs_Tools.extractGrey = function(d) {
-	var h = lib_haxepngjs_Tools.getHeader(d);
+lib_image_png_Tools.extractGrey = function(d) {
+	var h = lib_image_png_Tools.getHeader(d);
 	var grey = new haxe_io_Bytes(new ArrayBuffer(h.width * h.height));
 	var data = null;
 	var fullData = null;
@@ -2394,24 +3268,7 @@ lib_haxepngjs_Tools.extractGrey = function(d) {
 	if(data == null) {
 		throw haxe_Exception.thrown("Data not found");
 	}
-	var this1 = new Uint8Array(data.length);
-	var out = this1;
-	var _g = 0;
-	var _g1 = data.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out[i] = data.b[i];
-	}
-	var compressedStream = out;
-	var inflateStream1 = new Zlib.RawInflate(compressedStream).compress();
-	var out = new haxe_io_Bytes(new ArrayBuffer(inflateStream1.length));
-	var _g = 0;
-	var _g1 = inflateStream1.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out.b[i] = inflateStream1[i];
-	}
-	data = out;
+	data = lib_Inflate.run(data);
 	var r = 0;
 	var w = 0;
 	var _g = h.color;
@@ -2516,8 +3373,8 @@ lib_haxepngjs_Tools.extractGrey = function(d) {
 	}
 	return grey;
 };
-lib_haxepngjs_Tools.extract32 = function(d,bytes,flipY) {
-	var h = lib_haxepngjs_Tools.getHeader(d);
+lib_image_png_Tools.extract32 = function(d,bytes,flipY) {
+	var h = lib_image_png_Tools.getHeader(d);
 	var bgra = bytes == null ? new haxe_io_Bytes(new ArrayBuffer(h.width * h.height * 4)) : bytes;
 	var data = null;
 	var fullData = null;
@@ -2546,24 +3403,7 @@ lib_haxepngjs_Tools.extract32 = function(d,bytes,flipY) {
 	if(data == null) {
 		throw haxe_Exception.thrown("Data not found");
 	}
-	var this1 = new Uint8Array(data.length);
-	var out = this1;
-	var _g = 0;
-	var _g1 = data.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out[i] = data.b[i];
-	}
-	var compressedStream = out;
-	var inflateStream1 = new Zlib.RawInflate(compressedStream).compress();
-	var out = new haxe_io_Bytes(new ArrayBuffer(inflateStream1.length));
-	var _g = 0;
-	var _g1 = inflateStream1.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out.b[i] = inflateStream1[i];
-	}
-	data = out;
+	data = lib_Inflate.run(data);
 	var r = 0;
 	var w = 0;
 	var lineDelta = 0;
@@ -3127,7 +3967,7 @@ lib_haxepngjs_Tools.extract32 = function(d,bytes,flipY) {
 		}
 		break;
 	case 2:
-		var pal = lib_haxepngjs_Tools.getPalette(d);
+		var pal = lib_image_png_Tools.getPalette(d);
 		if(pal == null) {
 			throw haxe_Exception.thrown("PNG Palette is missing");
 		}
@@ -3290,7 +4130,7 @@ lib_haxepngjs_Tools.extract32 = function(d,bytes,flipY) {
 	}
 	return bgra;
 };
-lib_haxepngjs_Tools.buildGrey = function(width,height,data,level) {
+lib_image_png_Tools.buildGrey = function(width,height,data,level) {
 	if(level == null) {
 		level = 9;
 	}
@@ -3310,30 +4150,12 @@ lib_haxepngjs_Tools.buildGrey = function(width,height,data,level) {
 		}
 	}
 	var l = new haxe_ds_List();
-	l.add(lib_haxepngjs_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_haxepngjs_Color.ColGrey(false), interlaced : false}));
-	var this1 = new Uint8Array(rgb.length);
-	var out = this1;
-	var _g = 0;
-	var _g1 = rgb.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out[i] = rgb.b[i];
-	}
-	var rawStream = out;
-	var deflateStream1 = new Zlib.RawDeflate(rawStream).compress();
-	var out = new haxe_io_Bytes(new ArrayBuffer(deflateStream1.length));
-	var _g = 0;
-	var _g1 = deflateStream1.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out.b[i] = deflateStream1[i];
-	}
-	var deflateStream2 = out;
-	l.add(lib_haxepngjs_Chunk.CData(deflateStream2));
-	l.add(lib_haxepngjs_Chunk.CEnd);
+	l.add(lib_image_png_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_image_png_Color.ColGrey(false), interlaced : false}));
+	l.add(lib_image_png_Chunk.CData(lib_Deflate.run(rgb,level)));
+	l.add(lib_image_png_Chunk.CEnd);
 	return l;
 };
-lib_haxepngjs_Tools.buildIndexed = function(width,height,data,palette,level) {
+lib_image_png_Tools.buildIndexed = function(width,height,data,palette,level) {
 	if(level == null) {
 		level = 9;
 	}
@@ -3353,31 +4175,52 @@ lib_haxepngjs_Tools.buildIndexed = function(width,height,data,palette,level) {
 		}
 	}
 	var l = new haxe_ds_List();
-	l.add(lib_haxepngjs_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_haxepngjs_Color.ColIndexed, interlaced : false}));
-	l.add(lib_haxepngjs_Chunk.CPalette(palette));
-	var this1 = new Uint8Array(rgb.length);
-	var out = this1;
-	var _g = 0;
-	var _g1 = rgb.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out[i] = rgb.b[i];
-	}
-	var rawStream = out;
-	var deflateStream1 = new Zlib.RawDeflate(rawStream).compress();
-	var out = new haxe_io_Bytes(new ArrayBuffer(deflateStream1.length));
-	var _g = 0;
-	var _g1 = deflateStream1.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out.b[i] = deflateStream1[i];
-	}
-	var deflateStream2 = out;
-	l.add(lib_haxepngjs_Chunk.CData(deflateStream2));
-	l.add(lib_haxepngjs_Chunk.CEnd);
+	l.add(lib_image_png_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_image_png_Color.ColIndexed, interlaced : false}));
+	l.add(lib_image_png_Chunk.CPalette(palette));
+	l.add(lib_image_png_Chunk.CData(lib_Deflate.run(rgb,level)));
+	l.add(lib_image_png_Chunk.CEnd);
 	return l;
 };
-lib_haxepngjs_Tools.buildRGB = function(width,height,data,level) {
+lib_image_png_Tools.buildIndexedWithTransparency = function(width,height,data,palette,level) {
+	if(level == null) {
+		level = 9;
+	}
+	var rgb = new haxe_io_Bytes(new ArrayBuffer(width * height + height));
+	var w = 0;
+	var r = 0;
+	var _g = 0;
+	var _g1 = height;
+	while(_g < _g1) {
+		var y = _g++;
+		rgb.b[w++] = 0;
+		var _g2 = 0;
+		var _g3 = width;
+		while(_g2 < _g3) {
+			var x = _g2++;
+			rgb.b[w++] = data.b[r++];
+		}
+	}
+	var l = new haxe_ds_List();
+	l.add(lib_image_png_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_image_png_Color.ColIndexed, interlaced : false}));
+	var numCols = Math.floor(palette.length / 4);
+	var pal2 = new haxe_io_Bytes(new ArrayBuffer(numCols * 3));
+	var trns = new haxe_io_Bytes(new ArrayBuffer(numCols));
+	var _g = 0;
+	var _g1 = numCols;
+	while(_g < _g1) {
+		var p = _g++;
+		pal2.b[p * 3] = palette.b[p * 4];
+		pal2.b[p * 3 + 1] = palette.b[p * 4 + 1];
+		pal2.b[p * 3 + 2] = palette.b[p * 4 + 2];
+		trns.b[p] = palette.b[p * 4 + 3];
+	}
+	l.add(lib_image_png_Chunk.CPalette(pal2));
+	l.add(lib_image_png_Chunk.CUnknown("tRNS",trns));
+	l.add(lib_image_png_Chunk.CData(lib_Deflate.run(rgb,level)));
+	l.add(lib_image_png_Chunk.CEnd);
+	return l;
+};
+lib_image_png_Tools.buildRGB = function(width,height,data,level) {
 	if(level == null) {
 		level = 9;
 	}
@@ -3400,30 +4243,12 @@ lib_haxepngjs_Tools.buildRGB = function(width,height,data,level) {
 		}
 	}
 	var l = new haxe_ds_List();
-	l.add(lib_haxepngjs_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_haxepngjs_Color.ColTrue(false), interlaced : false}));
-	var this1 = new Uint8Array(rgb.length);
-	var out = this1;
-	var _g = 0;
-	var _g1 = rgb.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out[i] = rgb.b[i];
-	}
-	var rawStream = out;
-	var deflateStream1 = new Zlib.RawDeflate(rawStream).compress();
-	var out = new haxe_io_Bytes(new ArrayBuffer(deflateStream1.length));
-	var _g = 0;
-	var _g1 = deflateStream1.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out.b[i] = deflateStream1[i];
-	}
-	var deflateStream2 = out;
-	l.add(lib_haxepngjs_Chunk.CData(deflateStream2));
-	l.add(lib_haxepngjs_Chunk.CEnd);
+	l.add(lib_image_png_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_image_png_Color.ColTrue(false), interlaced : false}));
+	l.add(lib_image_png_Chunk.CData(lib_Deflate.run(rgb,level)));
+	l.add(lib_image_png_Chunk.CEnd);
 	return l;
 };
-lib_haxepngjs_Tools.build32ARGB = function(width,height,data,level) {
+lib_image_png_Tools.build32ARGB = function(width,height,data,level) {
 	if(level == null) {
 		level = 9;
 	}
@@ -3447,30 +4272,12 @@ lib_haxepngjs_Tools.build32ARGB = function(width,height,data,level) {
 		}
 	}
 	var l = new haxe_ds_List();
-	l.add(lib_haxepngjs_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_haxepngjs_Color.ColTrue(true), interlaced : false}));
-	var this1 = new Uint8Array(rgba.length);
-	var out = this1;
-	var _g = 0;
-	var _g1 = rgba.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out[i] = rgba.b[i];
-	}
-	var rawStream = out;
-	var deflateStream1 = new Zlib.RawDeflate(rawStream).compress();
-	var out = new haxe_io_Bytes(new ArrayBuffer(deflateStream1.length));
-	var _g = 0;
-	var _g1 = deflateStream1.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out.b[i] = deflateStream1[i];
-	}
-	var deflateStream2 = out;
-	l.add(lib_haxepngjs_Chunk.CData(deflateStream2));
-	l.add(lib_haxepngjs_Chunk.CEnd);
+	l.add(lib_image_png_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_image_png_Color.ColTrue(true), interlaced : false}));
+	l.add(lib_image_png_Chunk.CData(lib_Deflate.run(rgba,level)));
+	l.add(lib_image_png_Chunk.CEnd);
 	return l;
 };
-lib_haxepngjs_Tools.build32BGRA = function(width,height,data,level) {
+lib_image_png_Tools.build32BGRA = function(width,height,data,level) {
 	if(level == null) {
 		level = 9;
 	}
@@ -3494,35 +4301,17 @@ lib_haxepngjs_Tools.build32BGRA = function(width,height,data,level) {
 		}
 	}
 	var l = new haxe_ds_List();
-	l.add(lib_haxepngjs_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_haxepngjs_Color.ColTrue(true), interlaced : false}));
-	var this1 = new Uint8Array(rgba.length);
-	var out = this1;
-	var _g = 0;
-	var _g1 = rgba.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out[i] = rgba.b[i];
-	}
-	var rawStream = out;
-	var deflateStream1 = new Zlib.RawDeflate(rawStream).compress();
-	var out = new haxe_io_Bytes(new ArrayBuffer(deflateStream1.length));
-	var _g = 0;
-	var _g1 = deflateStream1.length;
-	while(_g < _g1) {
-		var i = _g++;
-		out.b[i] = deflateStream1[i];
-	}
-	var deflateStream2 = out;
-	l.add(lib_haxepngjs_Chunk.CData(deflateStream2));
-	l.add(lib_haxepngjs_Chunk.CEnd);
+	l.add(lib_image_png_Chunk.CHeader({ width : width, height : height, colbits : 8, color : lib_image_png_Color.ColTrue(true), interlaced : false}));
+	l.add(lib_image_png_Chunk.CData(lib_Deflate.run(rgba,level)));
+	l.add(lib_image_png_Chunk.CEnd);
 	return l;
 };
-var lib_haxepngjs_Writer = function(o) {
+var lib_image_png_Writer = function(o) {
 	this.o = o;
 	o.set_bigEndian(true);
 };
-lib_haxepngjs_Writer.__name__ = true;
-lib_haxepngjs_Writer.prototype = {
+lib_image_png_Writer.__name__ = true;
+lib_image_png_Writer.prototype = {
 	write: function(png) {
 		var b = 137;
 		this.o.writeByte(b);
@@ -3730,23 +4519,134 @@ ui_UI.displayTextureInfo = function(num) {
 		var i = _g++;
 		var arr = t0[i];
 		var ovr = tInfo.resInfo.formatOVR;
-		var arr2 = lib_Rarezip.decompress(arr);
-		var tx = framework_codec_Texture.decodeTexture(arr2,0,ovr);
-		if(tx.format > -1) {
-			ui_UI.gfx.drawTexture(posX,posY,tx,ovr.forceOpacity);
+		var arr2 = lib_dinoplanet_Rarezip.decompress(arr);
+		var tx = lib_dinoplanet_Texture.decodeTexture(arr2,0,ovr);
+		if(tx.format.pixelFormat > -1) {
+			ui_UI.gfx.drawTexture(posX,posY,tx,tx.format.opaque);
 			posY += tx.height + 8;
 			if(posY >= 608 - (tx.height + 8)) {
 				posY = 0;
 				posX += tx.width + 8;
 			}
+			ui_UI.textureInfoTooltip(tx);
 		}
 	}
 };
+ui_UI.textureInfoTooltip = function(tx) {
+	var fNames = lib_dinoplanet_Texture.getFormatNames();
+	var pos = 400;
+	var posInc = 16;
+	ui_UI.gfx.rect(0,pos - 16,1024,208,"#000000");
+	ui_UI.gfx.drawText("format : " + fNames[tx.format.pixelFormat],"#00ffff",16,pos += posInc);
+	ui_UI.gfx.drawText("opaque : " + Std.string(tx.format.opaque),"#00ffff",16,pos += posInc);
+	ui_UI.gfx.drawText("greyscale : " + Std.string(tx.format.gray),"#00ffff",16,pos += posInc);
+	var flgs = tx.flags;
+	ui_UI.gfx.drawText("no interlace : " + (flgs.ovrNoInterlace == null ? "null" : "" + flgs.ovrNoInterlace),"#00ff00",16,pos += posInc);
+	ui_UI.gfx.drawText("state switcher : " + (flgs.ovrNoInterlace == null ? "null" : "" + flgs.ovrNoInterlace),"#00ff00",16,pos += posInc);
+	ui_UI.gfx.drawText("transparent : " + (flgs.ovrNoInterlace == null ? "null" : "" + flgs.ovrNoInterlace),"#00ff00",16,pos += posInc);
+	ui_UI.gfx.drawText("transparent+ : " + (flgs.ovrNoInterlace == null ? "null" : "" + flgs.ovrNoInterlace),"#00ff00",16,pos += posInc);
+	ui_UI.gfx.drawText("transparent animated : " + (flgs.ovrNoInterlace == null ? "null" : "" + flgs.ovrNoInterlace),"#00ff00",16,pos += posInc);
+	ui_UI.gfx.drawText("mip-mapped : " + (flgs.ovrNoInterlace == null ? "null" : "" + flgs.ovrNoInterlace),"#00ff00",16,pos += posInc);
+	ui_UI.gfx.drawText("composite - base : " + (flgs.ovrNoInterlace == null ? "null" : "" + flgs.ovrNoInterlace),"#00ff00",16,pos += posInc);
+	ui_UI.gfx.drawText("composite - overlay : " + (flgs.ovrNoInterlace == null ? "null" : "" + flgs.ovrNoInterlace),"#00ff00",16,pos += posInc);
+};
 ui_UI.exportZip = function() {
-	framework_editor_FileExporter.exportZip(Main.ROM,0);
+	editor_FileExporter.exportZip(Main.ROM,0);
 };
 ui_UI.exportZipPNG = function() {
-	framework_editor_FileExporter.exportZip(Main.ROM,1);
+	editor_FileExporter.exportZip(Main.ROM,1);
+};
+var util_BinUtils = function() { };
+util_BinUtils.__name__ = true;
+util_BinUtils.createByteArray = function(src,end) {
+	var bytearr = haxe_io_Bytes.ofData(src);
+	return new lib_ByteThingyWhatToNameIt(bytearr,end);
+};
+util_BinUtils.BytesToU8Array = function(src) {
+	var this1 = new Uint8Array(src.length);
+	var out = this1;
+	var _g = 0;
+	var _g1 = src.length;
+	while(_g < _g1) {
+		var i = _g++;
+		out[i] = src.b[i];
+	}
+	return out;
+};
+util_BinUtils.readU8ArrayFromBytes = function(src,pos,length) {
+	var this1 = new Uint8Array(length);
+	var out = this1;
+	var _g = 0;
+	var _g1 = length;
+	while(_g < _g1) {
+		var i = _g++;
+		out[i] = src.get(pos + i);
+	}
+	return out;
+};
+util_BinUtils.U8ArrayToBytes = function(src) {
+	var out = new haxe_io_Bytes(new ArrayBuffer(src.length));
+	var _g = 0;
+	var _g1 = src.length;
+	while(_g < _g1) {
+		var i = _g++;
+		out.b[i] = src[i];
+	}
+	return out;
+};
+var util_BitUtils = function() { };
+util_BitUtils.__name__ = true;
+util_BitUtils.reverseI32 = function(input) {
+	var mask = 255;
+	var out = (input & mask) << 24;
+	input >>= 8;
+	out |= (input & mask) << 16;
+	input >>= 8;
+	out |= (input & mask) << 8;
+	input >>= 8;
+	out |= input & mask;
+	return out;
+};
+util_BitUtils.reverseI16 = function(input) {
+	var mask = 255;
+	var out = (input & mask) << 8;
+	input >>= 8;
+	out |= input & mask;
+	return out;
+};
+util_BitUtils.reverseI24 = function(input) {
+};
+var util_Util = function() { };
+util_Util.__name__ = true;
+util_Util.dataSize = function(size) {
+	var k = 1024;
+	var m = k * k;
+	var g = m * k;
+	var fk = Math.floor(size / k);
+	var fm = Math.floor(size / m);
+	var fg = Math.floor(size / g);
+	if(fg >= 1) {
+		var num2 = fg == null ? "null" : "" + fg;
+		var out = HxOverrides.substr(num2,0,num2.indexOf(".") + 3);
+		return out + " GB";
+	} else if(fm >= 1) {
+		var num2 = fm == null ? "null" : "" + fm;
+		var out = HxOverrides.substr(num2,0,num2.indexOf(".") + 3);
+		return out + " MB";
+	} else if(fk >= 1) {
+		var num2 = fk == null ? "null" : "" + fk;
+		var out = HxOverrides.substr(num2,0,num2.indexOf(".") + 3);
+		return out + " KB";
+	}
+	return size + " B";
+};
+util_Util.truncateDecimals = function(num,places) {
+	var num2 = num == null ? "null" : "" + num;
+	var out = HxOverrides.substr(num2,0,num2.indexOf(".") + (places + 1));
+	return out;
+};
+util_Util.hexa = function(n) {
+	return StringTools.hex(n,2);
 };
 if(typeof(performance) != "undefined" ? typeof(performance.now) == "function" : false) {
 	HxOverrides.now = performance.now.bind(performance);
@@ -3764,8 +4664,8 @@ Main.path_txt = window.document.getElementById("path-txt");
 Main.filein = window.document.getElementById("thefile");
 Main.filein2 = window.document.getElementById("thefile2");
 Main.filein3 = window.document.getElementById("thefile3");
-Util.signExtension = [-1,-2,-4,-8,-16,-32,-64,-128,-256,-512,-1024,-2048,-4096,-8192,-16384,-32768,-65536,-131072,-262144,-524288,-1048576,-2097152,-4194304,-8388608,-16777216,-33554432,-67108864,-134217728,-268435456,-536870912,-1073741824,-2147483648];
-framework_codec_Texture.formats = ["RGBA32","RGBA16","I8","I4","IA16","IA8","IA4","CI4","CI8"];
-framework_codec_Texture.CLUT4BIT = [0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255];
+lib_dinoplanet_Texture.formats = ["RGBA32","RGBA16","I8","I4","IA16","IA8","IA4","CI4","CI8"];
+lib_dinoplanet_Texture.CLUT4BIT = [0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255];
+util_Util.signExtension = [-1,-2,-4,-8,-16,-32,-64,-128,-256,-512,-1024,-2048,-4096,-8192,-16384,-32768,-65536,-131072,-262144,-524288,-1048576,-2097152,-4194304,-8388608,-16777216,-33554432,-67108864,-134217728,-268435456,-536870912,-1073741824,-2147483648];
 Main.main();
-})({});
+})(typeof window != "undefined" ? window : typeof global != "undefined" ? global : typeof self != "undefined" ? self : this);

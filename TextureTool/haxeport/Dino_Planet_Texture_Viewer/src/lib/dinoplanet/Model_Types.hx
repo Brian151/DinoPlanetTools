@@ -1,4 +1,4 @@
-package framework.codec;
+package lib.dinoplanet;
 import haxe.io.Bytes;
 
 typedef T_ModelHeader = {

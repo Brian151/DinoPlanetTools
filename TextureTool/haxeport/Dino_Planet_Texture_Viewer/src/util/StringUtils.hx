@@ -1,0 +1,7 @@
+package util;
+
+
+class StringUtils 
+{
+	
+}

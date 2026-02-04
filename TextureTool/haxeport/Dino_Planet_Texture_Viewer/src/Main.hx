@@ -1,32 +1,29 @@
 package;
-import Util;
-import framework.editor.EditorState;
-import framework.editor.FileExporter;
+import util.Util;
+import editor.EditorState;
+import editor.FileExporter;
 import haxe.io.Bytes;
-import framework.codec.Texture;
-import js.html.Blob;
-import js.html.Element;
-import js.html.InputElement;
-import js.html.FileReader;
-import js.Syntax;
-import framework.ByteThingyWhatToNameIt;
-import framework.codec.BinPack;
-import js.Browser.document;
+import lib.dinoplanet.Texture;
+import js.html.Blob;  // X-PLAT THIS
+import js.html.Element;  // X-PLAT THIS
+import js.html.InputElement;  // X-PLAT THIS
+import js.html.FileReader;  // X-PLAT THIS
+import js.Syntax; // X-PLAT THIS
+import lib.dinoplanet.TexPack;
+import js.Browser.document; // X-PLAT THIS
 import haxe.Json;
 import Graphics;
 import ui.UI;
-import framework.dev.ManifestConverter;
-import lib.Rarezip;
-import js.Browser.console;
-import framework.codec.Model;
-import framework.codec.Model_Types;
+import dev.ManifestConverter; // add flag
+import lib.dinoplanet.Rarezip;
+import js.Browser.console;  // X-PLAT THIS
+import lib.dinoplanet.Model;
+import lib.dinoplanet.Model_Types;
 
 // all unused (now) but keep for reference
-/*import haxe.io.UInt8Array;
-import haxe.io.UInt16Array;
-import haxe.io.UInt32Array;
+/*
 import haxe.crypto.Md5;
-import framework.codec.Qoi;*/
+import lib.Qoi;*/
 
 class Main 
 {
@@ -45,8 +42,8 @@ class Main
 	// core funcs
 	static function main() {
 		ROM = new EditorState(); // can't use this yet...
-		ROM.bin = new BinPack();
-		ROM.bin.type = 1;
+		ROM.bin = new TexPack();
+		// ROM.bin.type = 1; // dummy!
 		gfx = new Graphics(cast document.getElementById("screen"));
 		
 		// for debugging with console
@@ -68,30 +65,30 @@ class Main
 		if (filesLoaded < filesTotal) {
 			return;
 		}
-		
-		//UI.initMenu(gfx, menu, name_txt, tags_txt, path_txt);
+		// TODO : split model analysis into another app
+		UI.initMenu(gfx, menu, name_txt, tags_txt, path_txt);
 		
 		ROM.currTex = 687;
 		// temp!
 		
-		/*var curr = ROM.manifest.resources[ROM.currTex];
+		var curr = ROM.manifest.resources[ROM.currTex];
 		var tOVR = curr.resInfo.formatOVR;
-		var binfile:BinPack = ROM.bin;
+		var binfile:TexPack = ROM.bin;
 		var texDat = binfile.getFile(ROM.currTex)[0];
 		var texDat2 = Rarezip.decompress(texDat);
-		var tex = Texture.decodeTexture(texDat2, 0,tOVR);*/
+		var tex = Texture.decodeTexture(texDat2, 0,tOVR);
 		// FileExporter.exportPNG(tex, tOVR.forceOpacity, "aFileName");
 		// FileExporter.exportZip(ROM,1);
 		// ManifestConverter.update2();
 		
-		// UI.displayTextureInfo(ROM.currTex);
+		UI.displayTextureInfo(ROM.currTex);
 		
-		var curr = ROM.bin.getFile(0)[0];
+		/*var curr = ROM.bin.getFile(0)[0];
 		//console.log(curr);
 		var mdldat = Model.decompressModel(curr.tgt);
 		console.log(mdldat);
 		var mdl = Model.readModel(mdldat);
-		console.log(mdl);
+		console.log(mdl);*/
 	}
 	
 	public static function loadFile() {
@@ -104,17 +101,20 @@ class Main
 			var fr_mf = new FileReader();
 			
 			fr_tex.onload = function() {
-				var arr:ByteThingyWhatToNameIt = Util.createByteArray(fr_tex.result,false);
+				var arr:Bytes = Bytes.ofData(fr_tex.result);
 				ROM.bin.loadData(arr);
 				onFileLoaded();
 			}
 			fr_tab.onload = function() {
-				var arr:ByteThingyWhatToNameIt = Util.createByteArray(fr_tab.result,false);
+				var arr:Bytes = Bytes.ofData(fr_tab.result);
 				ROM.bin.loadOffsets(arr);
 				onFileLoaded();
 			}
+			// manifest should be optional...
 			fr_mf.onload = function() {
 				ROM.manifest = Json.parse(fr_mf.result);
+				// ManifestConverter.update3();
+				// ManifestConverter.findNonInterlaced(ROM.manifest);
 				onFileLoaded();
 			}
 			fr_tex.readAsArrayBuffer(file_texbin);

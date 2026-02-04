@@ -1,5 +1,5 @@
-package framework;
-import framework.codec.Texture.TTextureFormatOverride;
+package editor;
+import lib.dinoplanet.Texture.TTextureFormatOverride;
 
 // TODO : generalize
 typedef TDPFileManifest = {

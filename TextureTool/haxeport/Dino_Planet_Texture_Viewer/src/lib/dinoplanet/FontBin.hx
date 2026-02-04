@@ -1,10 +1,12 @@
-package framework.codec;
-import framework.ByteThingyWhatToNameIt;
+package lib.dinoplanet;
+import lib.ByteThingyWhatToNameIt; // DEPRECATED, remove
 
 
 // format spec provided by Banjeoin of the Dino Planet Community Discord Server
+// todo : remove dependency on ByteThingy...
 
 // do i really need this object ???
+// nah...
 typedef TDPFontContainer = { 
 	count : Int,
 	fonts : Array<TDPFont>

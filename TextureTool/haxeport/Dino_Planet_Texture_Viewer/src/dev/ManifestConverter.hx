@@ -1,7 +1,10 @@
-package framework.dev;
+package dev;
+import editor.ManifestDB;
 import Reflect;
-import framework.ManifestDB.TDPFileManifest;
-import js.Browser;
+import editor.ManifestDB.TDPFileManifest;
+import js.Browser.console;  // X-PLAT THIS
+import lib.dinoplanet.Texture.TTextureFormatOverride;
+import haxe.Json;
 
 class ManifestConverter 
 {
@@ -44,5 +47,24 @@ class ManifestConverter
 		Main.exportManifest();
 	}
 	
+	// remove opacity override
+	public static function update3() {
+		var mf = Main.ROM.manifest;
+		for (i in 0...mf.resources.length){
+			var res = mf.resources[i].resInfo;
+			Reflect.deleteField(res.formatOVR, "forceOpacity");
+		}
+		Main.exportManifest();
+	}
 	
+	public static function findNonInterlaced(src:TDPFileManifest) {
+		var res = src.resources;
+		for (i in 0...src.resources.length) {
+			var curr:TManifestResourceEntry = res[i];
+			var ovr:TTextureFormatOverride = curr.resInfo.formatOVR;
+			if (ovr.noSwizzle) {
+				console.log(Json.stringify(curr));
+			}
+		}
+	}
 }

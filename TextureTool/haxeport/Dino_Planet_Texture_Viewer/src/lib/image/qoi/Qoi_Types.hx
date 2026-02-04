@@ -1,4 +1,4 @@
-package framework.codec;
+package lib.image.qoi;
 import haxe.io.Bytes;
 import haxe.io.UInt8Array;
 

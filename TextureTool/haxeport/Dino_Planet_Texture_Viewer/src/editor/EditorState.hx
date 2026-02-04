@@ -1,10 +1,10 @@
-package framework.editor;
-import framework.codec.BinPack;
-import framework.ManifestDB.TDPFileManifest;
+package editor;
+import lib.dinoplanet.TexPack;
+import editor.ManifestDB.TDPFileManifest;
 
 class EditorState 
 {
-	public var bin:BinPack;
+	public var bin:TexPack;
 	public var manifest:TDPFileManifest;
 	public var currTex:Int = 0;
 	// need to store the actual textures being edited somehow... , TODO !

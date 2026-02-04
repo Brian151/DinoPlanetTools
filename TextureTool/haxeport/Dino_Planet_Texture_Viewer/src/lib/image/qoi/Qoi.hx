@@ -1,4 +1,4 @@
-package framework.codec;
+package lib.image.qoi;
 import framework.codec.Qoi_Types;
 import haxe.io.Bytes;
 import haxe.io.BytesInput;

@@ -1,0 +1,6 @@
+package editor;
+
+class FileImporter 
+{
+
+}

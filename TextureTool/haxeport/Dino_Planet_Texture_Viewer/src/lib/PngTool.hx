@@ -1,18 +1,20 @@
-package framework.codec;
+package lib;
 import haxe.io.Bytes;
-import framework.codec.Texture;
+import lib.dinoplanet.Texture;
 import haxe.io.BytesOutput;
-import js.html.ImageData;
+import js.html.ImageData; // NEED TO X-PLAT
 import haxe.io.UInt8Array;
-import lib.haxepngjs.Data;
-import lib.haxepngjs.Reader;
-import lib.haxepngjs.Writer;
-import lib.haxepngjs.Tools;
+import lib.image.png.Data;
+import lib.image.png.Reader;
+import lib.image.png.Writer;
+import lib.image.png.Tools;
+import util.BinUtils;
 
 class PngTool 
 {
 	// why does format.png do this?!
 	// conversion works both ways
+	// todo : move & re-name
 	public static function BGRA(dat:Bytes) {
 		var p = 0;
 		for (i in 0...dat.length >> 2) {
@@ -29,10 +31,10 @@ class PngTool
 	}
 	
 	public static function textureToPNG(src:TDinoPlanetTexture):Bytes {
-		switch(src.format) {
+		switch(src.format.pixelFormat) {
 			case 0 :
 				var img = Texture.convertToImage(src,false);
-				var dat = Util.U8ArrayToBytes(cast img.data);
+				var dat = BinUtils.U8ArrayToBytes(cast img.data);
 				BGRA(dat);
 				var png = Tools.build32BGRA(src.width, src.height, dat);
 				var pngB = new BytesOutput();
@@ -40,27 +42,27 @@ class PngTool
 				return pngB.getBytes();
 			case 1 :
 				var img = Texture.convertToImage(src,false);
-				var dat = Util.U8ArrayToBytes(cast img.data);
+				var dat = BinUtils.U8ArrayToBytes(cast img.data);
 				BGRA(dat);
 				var png = Tools.build32BGRA(src.width, src.height, dat);
 				var pngB = new BytesOutput();
 				new Writer(pngB).write(png);
 				return pngB.getBytes();
 			case 2 :
-				var dat = Util.U8ArrayToBytes(src.pixels);
+				var dat = BinUtils.U8ArrayToBytes(src.pixels);
 				var png = Tools.buildGrey(src.width, src.height, dat);
 				var pngB = new BytesOutput();
 				new Writer(pngB).write(png);
 				return pngB.getBytes();
 			case 3 :
-				var dat = Util.U8ArrayToBytes(src.pixels);
+				var dat = BinUtils.U8ArrayToBytes(src.pixels);
 				var png = Tools.buildGrey(src.width, src.height, dat);
 				var pngB = new BytesOutput();
 				new Writer(pngB).write(png);
 				return pngB.getBytes();
 			case 4 : 
 				var img = Texture.convertToImage(src,false);
-				var dat = Util.U8ArrayToBytes(cast img.data);
+				var dat = BinUtils.U8ArrayToBytes(cast img.data);
 				BGRA(dat);
 				var png = Tools.build32BGRA(src.width, src.height, dat);
 				var pngB = new BytesOutput();
@@ -68,7 +70,7 @@ class PngTool
 				return pngB.getBytes();
 			case 5 :
 				var img = Texture.convertToImage(src,false);
-				var dat = Util.U8ArrayToBytes(cast img.data);
+				var dat = BinUtils.U8ArrayToBytes(cast img.data);
 				BGRA(dat);
 				var png = Tools.build32BGRA(src.width, src.height, dat);
 				var pngB = new BytesOutput();
@@ -76,23 +78,24 @@ class PngTool
 				return pngB.getBytes();
 			case 6 :
 				var img = Texture.convertToImage(src,false);
-				var dat = Util.U8ArrayToBytes(cast img.data);
+				var dat = BinUtils.U8ArrayToBytes(cast img.data);
 				BGRA(dat);
 				var png = Tools.build32BGRA(src.width, src.height, dat);
 				var pngB = new BytesOutput();
 				new Writer(pngB).write(png);
 				return pngB.getBytes();
 			case 7 :
-				var dat = Util.U8ArrayToBytes(src.pixels);
-				var datPal = Util.U8ArrayToBytes(src.palette);
-				var png = Tools.buildIndexed(src.width, src.height, dat, datPal);
+				var dat = BinUtils.U8ArrayToBytes(src.pixels);
+				var datPal = BinUtils.U8ArrayToBytes(src.palette);
+				var png = Tools.buildIndexedWithTransparency(src.width, src.height, dat, datPal);
 				var pngB = new BytesOutput();
 				new Writer(pngB).write(png);
 				return pngB.getBytes();
 			case 8 :
-				var dat = Util.U8ArrayToBytes(src.pixels);
-				var datPal = Util.U8ArrayToBytes(src.palette);
-				var png = Tools.buildIndexed(src.width, src.height, dat, datPal);
+				var dat = BinUtils.U8ArrayToBytes(src.pixels);
+				var dat = BinUtils.U8ArrayToBytes(src.pixels);
+				var datPal = BinUtils.U8ArrayToBytes(src.palette);
+				var png = Tools.buildIndexedWithTransparency(src.width, src.height, dat, datPal);
 				var pngB = new BytesOutput();
 				new Writer(pngB).write(png);
 				return pngB.getBytes();

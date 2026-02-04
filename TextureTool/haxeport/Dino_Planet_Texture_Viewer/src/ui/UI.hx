@@ -4,10 +4,11 @@ import js.html.InputElement;
 import js.Browser.document;
 import js.Syntax;
 import js.html.Image;
-import framework.codec.Texture;
-import framework.codec.Texture.TTextureFormatOverride;
-import framework.editor.FileExporter;
-import lib.Rarezip;
+import lib.dinoplanet.Texture;
+import lib.dinoplanet.Texture.TTextureFormatOverride;
+import editor.FileExporter;
+import lib.dinoplanet.Rarezip;
+// heavily JS-reliant, needs to change ASAP
 
 class UI
 {
@@ -104,17 +105,36 @@ class UI
 			var arr2 = Rarezip.decompress(arr);
 			
 			var tx = Texture.decodeTexture(arr2,0,ovr);
-			if (tx.format > -1) {
-				gfx.drawTexture(posX,posY,tx,ovr.forceOpacity);
+			if (tx.format.pixelFormat > -1) {
+				gfx.drawTexture(posX,posY,tx,tx.format.opaque);
 				posY += tx.height + 8;
 				// todo : magic #'s bad!
 				if (posY >= 608 - (tx.height + 8)) {
 					posY = 0;
 					posX += tx.width + 8;
 				}
+				textureInfoTooltip(tx);
 			}
 		}
-		
+	}
+	
+	static function textureInfoTooltip(tx:TDinoPlanetTexture) {
+		var fNames = Texture.getFormatNames();
+		var pos = 400;
+		var posInc = 16;
+		gfx.rect(0, pos - 16, 1024, (16 * 11) + 32, "#000000");
+		gfx.drawText("format : " + fNames[tx.format.pixelFormat], "#00ffff",16,pos+=posInc);
+		gfx.drawText("opaque : " + tx.format.opaque, "#00ffff",16,pos+=posInc);
+		gfx.drawText("greyscale : " + tx.format.gray, "#00ffff",16,pos+=posInc);
+		var flgs = tx.flags;
+		gfx.drawText("no interlace : " + flgs.ovrNoInterlace, "#00ff00", 16, pos += posInc);
+		gfx.drawText("state switcher : " + flgs.ovrNoInterlace, "#00ff00", 16, pos += posInc);
+		gfx.drawText("transparent : " + flgs.ovrNoInterlace, "#00ff00", 16, pos += posInc);
+		gfx.drawText("transparent+ : " + flgs.ovrNoInterlace, "#00ff00", 16, pos += posInc);
+		gfx.drawText("transparent animated : " + flgs.ovrNoInterlace, "#00ff00", 16, pos += posInc);
+		gfx.drawText("mip-mapped : " + flgs.ovrNoInterlace, "#00ff00", 16, pos += posInc);
+		gfx.drawText("composite - base : " + flgs.ovrNoInterlace, "#00ff00", 16, pos += posInc);
+		gfx.drawText("composite - overlay : " + flgs.ovrNoInterlace, "#00ff00", 16, pos += posInc);
 	}
 	
 	// todo : select which format, not press specific button

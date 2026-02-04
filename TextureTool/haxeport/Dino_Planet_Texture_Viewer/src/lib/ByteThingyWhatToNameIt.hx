@@ -1,10 +1,11 @@
-package framework;
+package lib;
 import haxe.io.BufferInput; // need?
 import haxe.io.UInt8Array;
 import haxe.io.UInt16Array;
 import haxe.io.UInt32Array;
 import haxe.io.Bytes;
 import js.Syntax; // unfortunate...
+import util.Util;
 
 
 class ByteThingyWhatToNameIt 
@@ -71,7 +72,7 @@ class ByteThingyWhatToNameIt
 		var n = readUint8();
 		var flag = ((n & 0x80) >> 7) == 1;
 		if (flag) {
-			n |= Util.signExtension[31 - 7];
+			n |= util.Util.signExtension[31 - 7];
 		}
 	}
 	
@@ -79,7 +80,7 @@ class ByteThingyWhatToNameIt
 		var n = readUint16(endian);
 		var flag = ((n & 0x8000) >> 15) == 1;
 		if (flag) {
-			n |= Util.signExtension[31 - 15];
+			n |= util.Util.signExtension[31 - 15];
 		}
 		return n;
 	}
@@ -88,7 +89,7 @@ class ByteThingyWhatToNameIt
 		var n = readUint32(endian);
 		var flag = ((n & 0x80000000) >> 31) == 1;
 		if (flag) {
-			n |= Util.signExtension[31 - 31];
+			n |= util.Util.signExtension[31 - 31];
 		}
 		return n;
 	}
@@ -97,7 +98,7 @@ class ByteThingyWhatToNameIt
 		var n = readUint24(endian);
 		var flag = ((n & 0x800000) >> 23) == 1;
 		if (flag) {
-			n |= Util.signExtension[31 - 23];
+			n |= util.Util.signExtension[31 - 23];
 		}
 		return n;
 	}

@@ -2,8 +2,10 @@ package;
 import js.html.CanvasElement;
 import js.html.CanvasRenderingContext2D;
 import js.html.ImageData;
-import framework.codec.Texture;
+import lib.dinoplanet.Texture;
 import haxe.io.UInt8Array;
+import util.Util;
+// heavily JS-reliant, needs to change in the future
 
 class Graphics 
 {
@@ -20,7 +22,7 @@ class Graphics
 	public function drawTexture(x:Int,y:Int,texture:TDinoPlanetTexture,forceOpacity:Bool) : Void {
 		var turtle = Texture.convertToImage(texture,forceOpacity);
 		drawImageData(turtle, x, y, 1);
-		if (texture.format == 7 || texture.format == 8) {
+		if (texture.format.pixelFormat == 7 || texture.format.pixelFormat == 8) {
 			drawPallete(texture.palette);
 		}
 	}
@@ -39,10 +41,10 @@ class Graphics
 			for (iX in 0...iDat.width) {
 				var base:Int = posP * 4;
 				// todo : util funcs for this!
-				var r:String = Util.hexa(arrP[base]); // todo : revert this to Ints
-				var g:String = Util.hexa(arrP[base + 1]);
-				var b:String = Util.hexa(arrP[base + 2]);
-				var a:String = Util.hexa(arrP[base + 3]);
+				var r:String = util.Util.hexa(arrP[base]); // todo : revert this to Ints
+				var g:String = util.Util.hexa(arrP[base + 1]);
+				var b:String = util.Util.hexa(arrP[base + 2]);
+				var a:String = util.Util.hexa(arrP[base + 3]);
 				ctx.fillStyle = "#" + r + g + b + a;
 				ctx.fillRect(posX,posY,cast scale,cast scale);
 				posX += scale;
@@ -81,6 +83,17 @@ class Graphics
 			ctx.fillRect(posX,posY,16,16);
 			posX += 16;
 		}
+	}
+	
+	public function rect(posX:Float,posY:Float,width:Float,height:Float,color:String) {
+		ctx.fillStyle = color;
+		ctx.fillRect(posX,posY,width,height);
+	}
+	
+	public function drawText(txt:String,color:String,posX:Float,posY:Float) {
+		ctx.font = "16px Georgia";
+		ctx.fillStyle = color;
+		ctx.fillText(txt, posX, posY);
 	}
 	
 }
